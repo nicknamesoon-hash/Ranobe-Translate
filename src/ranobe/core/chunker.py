@@ -14,7 +14,7 @@ from ranobe.core.tokens import estimate_tokens
 T = TypeVar("T")
 
 
-def take_chunk(segments: Iterable[T], budget_tokens: int, text_of=lambda s: s.source) -> list[T]:
+def take_chunk[T](segments: Iterable[T], budget_tokens: int, text_of=lambda s: s.source) -> list[T]:
     """Take segments from the front until the budget is used. Always takes at least one."""
     chunk: list[T] = []
     used = 0
@@ -27,7 +27,7 @@ def take_chunk(segments: Iterable[T], budget_tokens: int, text_of=lambda s: s.so
     return chunk
 
 
-def split_chunks(
+def split_chunks[T](
     segments: Sequence[T], budget_tokens: int, text_of=lambda s: s.source
 ) -> list[list[T]]:
     chunks: list[list[T]] = []
