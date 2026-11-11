@@ -93,7 +93,9 @@ QUALITY_PRESETS: dict[str, QualityPreset] = {
     p.id: p
     for p in (
         QualityPreset("fast", temperature=0.3, chunk_tokens=1800, tail_chars=500, two_pass=False),
-        QualityPreset("balanced", temperature=0.3, chunk_tokens=1200, tail_chars=900, two_pass=False),
+        QualityPreset(
+            "balanced", temperature=0.3, chunk_tokens=1200, tail_chars=900, two_pass=False
+        ),
         QualityPreset("quality", temperature=0.2, chunk_tokens=800, tail_chars=1200, two_pass=True),
     )
 }

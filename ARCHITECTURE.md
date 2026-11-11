@@ -150,17 +150,25 @@ ranobe-translator/
 
 ```python
 class SegmentStatus(StrEnum):
-    PENDING = "pending"          # ще не перекладено
-    TRANSLATED = "translated"    # є машинний переклад
+    PENDING = "pending"  # ще не перекладено
+    TRANSLATED = "translated"  # є машинний переклад
     NEEDS_REVIEW = "needs_review"  # відмова моделі / невалідний JSON / різке скорочення
-    REVIEWED = "reviewed"        # користувач перевірив
-    EDITED = "edited"            # користувач змінив текст вручну
+    REVIEWED = "reviewed"  # користувач перевірив
+    EDITED = "edited"  # користувач змінив текст вручну
+
 
 class CensorshipLevel(StrEnum):
-    ORIGINAL = "original"; SOFTENED = "softened"; FAMILY = "family"
+    ORIGINAL = "original"
+    SOFTENED = "softened"
+    FAMILY = "family"
 
-class TranslationStatus(StrEnum):   # статус перекладу твору (метадані)
-    PLANNED = "planned"; IN_PROGRESS = "in_progress"; PAUSED = "paused"; DONE = "done"
+
+class TranslationStatus(StrEnum):  # статус перекладу твору (метадані)
+    PLANNED = "planned"
+    IN_PROGRESS = "in_progress"
+    PAUSED = "paused"
+    DONE = "done"
+
 
 @dataclass
 class Work:
@@ -168,48 +176,57 @@ class Work:
     title: str
     original_title: str | None
     author: str | None
-    source_lang: str            # BCP-47: "ja", "zh", "ko", "en"
-    target_lang: str            # "uk"
+    source_lang: str  # BCP-47: "ja", "zh", "ko", "en"
+    target_lang: str  # "uk"
     genres: list[str]
     tags: list[str]
     synopsis: str
     translation_status: TranslationStatus
     cover_id: UUID | None
-    settings: WorkSettings      # див. нижче
+    settings: WorkSettings  # див. нижче
     updated_at: datetime
-    rev: int                    # версія для синхронізації
+    rev: int  # версія для синхронізації
     deleted: bool = False
+
 
 @dataclass
 class WorkSettings:
     censorship: CensorshipLevel = CensorshipLevel.ORIGINAL
     honorifics: Literal["keep", "adapt", "drop"] = "keep"
     two_pass: bool = False
-    quality_preset: str = "balanced"     # id, не підпис
+    quality_preset: str = "balanced"  # id, не підпис
     provider_id: str = "gemini"
     model: str | None = None
 
+
 @dataclass
 class Chapter:
-    id: UUID; work_id: UUID; index: int; title: str; rev: int
+    id: UUID
+    work_id: UUID
+    index: int
+    title: str
+    rev: int
+
 
 @dataclass
 class Segment:
     id: UUID
     chapter_id: UUID
-    index: int                  # порядок у розділі
+    index: int  # порядок у розділі
     kind: Literal["paragraph", "heading", "dialogue", "separator"]
     source: str
     translation: str | None
     status: SegmentStatus
-    censored: bool              # текст пом'якшено відповідно до рівня
-    machine_translation: str | None   # перша версія від LLM (щоб показати diff після ручних правок)
+    censored: bool  # текст пом'якшено відповідно до рівня
+    machine_translation: str | None  # перша версія від LLM (щоб показати diff після ручних правок)
     rev: int
+
 
 @dataclass
 class DisputeOption:
     text: str
     rationale: str
+
 
 @dataclass
 class Dispute:
@@ -217,39 +234,46 @@ class Dispute:
     segment_id: UUID
     source_fragment: str
     issue: str
-    options: list[DisputeOption]      # 2–4
+    options: list[DisputeOption]  # 2–4
     recommended: int
-    chosen: int | None                # індекс; None = ще не вирішено
-    custom_text: str | None           # свій варіант користувача
+    chosen: int | None  # індекс; None = ще не вирішено
+    custom_text: str | None  # свій варіант користувача
     add_to_glossary: bool
     resolved_at: datetime | None
 
+
 class NoteType(StrEnum):
-    UNTRANSLATABLE = "untranslatable"; WORDPLAY = "wordplay"; CULTURAL = "cultural"
-    TERM = "term"; REFERENCE = "reference"; TRANSLATOR_CHOICE = "translator_choice"
+    UNTRANSLATABLE = "untranslatable"
+    WORDPLAY = "wordplay"
+    CULTURAL = "cultural"
+    TERM = "term"
+    REFERENCE = "reference"
+    TRANSLATOR_CHOICE = "translator_choice"
+
 
 @dataclass
 class Note:
     id: UUID
     segment_id: UUID
     type: NoteType
-    anchor: str                 # слово в перекладі, до якого прив'язана примітка
+    anchor: str  # слово в перекладі, до якого прив'язана примітка
     source_fragment: str
     text: str
     first_occurrence: bool
-    display: Literal["footnote", "tooltip"]   # як показувати й експортувати
+    display: Literal["footnote", "tooltip"]  # як показувати й експортувати
     origin: Literal["llm", "user"]
+
 
 @dataclass
 class GlossaryEntry:
     id: UUID
-    work_id: UUID | None        # None = глобальний глосарій
+    work_id: UUID | None  # None = глобальний глосарій
     source: str
     target: str
     kind: Literal["name", "term", "place", "technique", "other"]
     note: str | None
     origin: Literal["user", "dispute", "llm_suggestion"]
-    locked: bool                # користувач підтвердив, модель не може змінювати
+    locked: bool  # користувач підтвердив, модель не може змінювати
 ```
 
 Чому сегменти з UUID, а не індекси чанків:
@@ -266,14 +290,14 @@ class GlossaryEntry:
 class TranslationJob:
     id: UUID
     work_id: UUID
-    chapter_ids: list[UUID]          # що перекладаємо
+    chapter_ids: list[UUID]  # що перекладаємо
     state: Literal["running", "paused", "waiting_quota", "failed", "done"]
-    plot_summary: str                # оновлюється кожні N чанків
-    last_source_tail: str            # хвіст оригіналу попереднього чанка
-    last_translation_tail: str       # хвіст перекладу попереднього чанка
+    plot_summary: str  # оновлюється кожні N чанків
+    last_source_tail: str  # хвіст оригіналу попереднього чанка
+    last_translation_tail: str  # хвіст перекладу попереднього чанка
     settings_snapshot: WorkSettings  # з чим запускали
-    stats: JobStats                  # токени, запити, час, для ETA й вартості
-    resume_after: datetime | None    # коли закінчиться cooldown усіх ключів
+    stats: JobStats  # токени, запити, час, для ETA й вартості
+    resume_after: datetime | None  # коли закінчиться cooldown усіх ключів
     updated_at: datetime
 ```
 
@@ -313,11 +337,12 @@ sync_state(key PK, value)            -- cursor сервера, device_id
 ```python
 @dataclass(frozen=True)
 class ProviderInfo:
-    id: str                    # "gemini"
-    display_key: str           # i18n-ключ назви: "provider.gemini"
+    id: str  # "gemini"
+    display_key: str  # i18n-ключ назви: "provider.gemini"
     default_model: str
     key_url: str
     supports_json_mode: bool
+
 
 @dataclass
 class ChatRequest:
@@ -325,8 +350,9 @@ class ChatRequest:
     system: str
     user: str
     temperature: float
-    json_schema: dict | None   # якщо провайдер підтримує structured output
+    json_schema: dict | None  # якщо провайдер підтримує structured output
     max_output_tokens: int | None
+
 
 @dataclass
 class ChatResponse:
@@ -335,10 +361,14 @@ class ChatResponse:
     input_tokens: int | None
     output_tokens: int | None
 
+
 class LLMProvider(Protocol):
     info: ProviderInfo
+
     async def chat(self, req: ChatRequest, api_key: str) -> ChatResponse: ...
-    def classify_error(self, status: int, body: dict | str, headers: Mapping[str, str]) -> ProviderError: ...
+    def classify_error(
+        self, status: int, body: dict | str, headers: Mapping[str, str]
+    ) -> ProviderError: ...
     async def list_models(self, api_key: str) -> list[str]: ...
 ```
 
@@ -347,10 +377,13 @@ class LLMProvider(Protocol):
 ```python
 @register_provider
 class DeepSeekProvider(OpenAICompatProvider):
-    info = ProviderInfo(id="deepseek", display_key="provider.deepseek",
-                        default_model="deepseek-chat",
-                        key_url="https://platform.deepseek.com/api_keys",
-                        supports_json_mode=True)
+    info = ProviderInfo(
+        id="deepseek",
+        display_key="provider.deepseek",
+        default_model="deepseek-chat",
+        key_url="https://platform.deepseek.com/api_keys",
+        supports_json_mode=True,
+    )
     base_url = "https://api.deepseek.com"
 ```
 
@@ -361,12 +394,26 @@ class DeepSeekProvider(OpenAICompatProvider):
 
 ```python
 class ProviderError(Exception): ...
-class RateLimited(ProviderError):      retry_after: float | None   # RPM/TPM: cooldown ключа на секунди
-class QuotaExhausted(ProviderError):   reset_at: datetime | None   # денна/місячна квота: ключ «вичерпаний» до скидання
-class AuthFailed(ProviderError): ...                                # ключ невалідний: вимкнути, попросити користувача
-class ContentRefused(ProviderError): ...                            # відмова/фільтр: ротація ключа не допоможе
-class InvalidOutput(ProviderError): ...                             # невалідний JSON / не всі сегменти
-class Transient(ProviderError): ...                                 # 5xx, таймаут, мережа: backoff на тому ж ключі
+
+
+class RateLimited(ProviderError):
+    retry_after: float | None  # RPM/TPM: cooldown ключа на секунди
+
+
+class QuotaExhausted(ProviderError):
+    reset_at: datetime | None  # денна/місячна квота: ключ «вичерпаний» до скидання
+
+
+class AuthFailed(ProviderError): ...  # ключ невалідний: вимкнути, попросити користувача
+
+
+class ContentRefused(ProviderError): ...  # відмова/фільтр: ротація ключа не допоможе
+
+
+class InvalidOutput(ProviderError): ...  # невалідний JSON / не всі сегменти
+
+
+class Transient(ProviderError): ...  # 5xx, таймаут, мережа: backoff на тому ж ключі
 ```
 
 ### 5.3 Пул ключів
@@ -401,8 +448,14 @@ class Lease:
 
 ```python
 class Translator:
-    def __init__(self, providers: ProviderRegistry, pool: KeyPool,
-                 repo: ProjectRepository, prompts: PromptBuilder, events: EventSink): ...
+    def __init__(
+        self,
+        providers: ProviderRegistry,
+        pool: KeyPool,
+        repo: ProjectRepository,
+        prompts: PromptBuilder,
+        events: EventSink,
+    ): ...
 
     async def run(self, job_id: UUID) -> JobResult:
         """Цикл: взяти наступний чанк pending-сегментів → зібрати промт із БД →
@@ -488,11 +541,18 @@ class SecretStore(Protocol):
 ```python
 class Importer(Protocol):
     extensions: tuple[str, ...]
-    def read(self, path: Path) -> ImportedBook: ...   # метадані + розділи з абзацами
+
+    def read(self, path: Path) -> ImportedBook: ...  # метадані + розділи з абзацами
+
 
 class Exporter(Protocol):
-    id: str; display_key: str; extension: str
-    def export(self, work: Work, chapters: list[ChapterWithSegments], opts: ExportOptions, out: Path) -> None: ...
+    id: str
+    display_key: str
+    extension: str
+
+    def export(
+        self, work: Work, chapters: list[ChapterWithSegments], opts: ExportOptions, out: Path
+    ) -> None: ...
 ```
 
 EPUB-експорт: розділ = XHTML-файл; примітки як EPUB3 виноски
@@ -567,10 +627,10 @@ EPUB-експорт: розділ = XHTML-файл; примітки як EPUB3 
 ## 8. i18n і довідка
 
 ```python
-t("library.empty.title")                      # простий рядок
-t("translate.progress", done=3, total=40)     # підстановка
-t("segments.count", n=5)                      # множина: uk має one/few/many, en one/other
-set_locale("en")                              # викликає підписників → UI перебудовує поточний view
+t("library.empty.title")  # простий рядок
+t("translate.progress", done=3, total=40)  # підстановка
+t("segments.count", n=5)  # множина: uk має one/few/many, en one/other
+set_locale("en")  # викликає підписників → UI перебудовує поточний view
 ```
 
 - Файли `i18n/locales/uk.json`, `en.json`; плоскі ключі з крапками; тест перевіряє, що набори
