@@ -14,3 +14,20 @@ pytest
 ruff check . && ruff format --check .
 python -m ranobe.cli --help
 ```
+
+## Trying the core (phase 1)
+
+```
+python -m ranobe.cli providers                       # where to get free keys
+python -m ranobe.cli accounts add --provider gemini --label main --rpm 8 --priority 10
+python -m ranobe.cli accounts add --provider groq --label backup --priority 20
+python -m ranobe.cli accounts test
+python -m ranobe.cli import book.epub --from ja --to uk
+python -m ranobe.cli translate <id>                  # Ctrl+C pauses, run again to resume
+python -m ranobe.cli status <id>
+python -m ranobe.cli export <id> out.txt --side-by-side
+```
+
+Data lives in `%APPDATA%\RanobeTranslator` (Windows) or `~/.local/share/ranobe-translator`
+(Linux); set `RANOBE_DATA_DIR` to use another folder. API keys go to the system keychain, or to
+a file encrypted with a master password when no keychain is available.

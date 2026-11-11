@@ -55,7 +55,7 @@
 | UI | Flet (Material 3) | Див. вище |
 | Async | `asyncio` | Flet async-first; скасування перекладу через `CancelledError` замість прапорців |
 | HTTP до LLM | `httpx` (async) напряму, без OpenAI SDK | OpenAI-сумісний `/chat/completions` — це один POST. Повний контроль над тілом помилки 429 (RPM чи квота), менше залежностей на Android |
-| Моделі даних | `dataclasses` у домені; `pydantic` v2 лише на межах (відповідь LLM, конфіг, DTO синхронізації) | Валідація JSON від LLM — головне місце, де pydantic реально економить код. Якщо спайк покаже проблему з `pydantic-core` на Android, замінюємо на ручні валідатори в `core/llm_schema.py` |
+| Моделі даних | `dataclasses` скрізь; JSON від LLM валідується вручну в `core/llm_schema.py` | Рішення фази 1: ручна валідація вийшла ~150 рядків і прибрала нативну залежність `pydantic-core` (ризик для Android) |
 | БД | SQLite через `sqlite3`, власні SQL-міграції (`PRAGMA user_version`) | Без ORM: простіше, без залежностей, легко читати |
 | Секрети | `keyring` (Windows Credential Manager, Linux Secret Service) → Android Keystore → Fernet (`cryptography`) з ключем з майстер-пароля (scrypt) | Вимога безпеки |
 | Кодування TXT | BOM → UTF-8 → `charset-normalizer` | Виправляє баг з GBK |
@@ -78,46 +78,45 @@ ranobe-translator/
 │   ├── __main__.py            # python -m ranobe → запуск UI
 │   ├── cli.py                 # python -m ranobe.cli … — ручна перевірка ядра без UI
 │   │
-│   ├── core/                  # чиста логіка, без I/O платформи й UI
+│   ├── core/                  # чиста логіка, без I/O платформи й UI       [фаза 1 ✓]
 │   │   ├── models.py          # Work, Chapter, Segment, Note, Dispute, GlossaryEntry, …
+│   │   ├── errors.py          # класифіковані помилки провайдера
 │   │   ├── segmenter.py       # текст → сегменти (абзаци), CJK-aware речення
 │   │   ├── chunker.py         # сегменти → чанки під бюджет токенів
 │   │   ├── tokens.py          # оцінка токенів (евристика за типом письма)
 │   │   ├── prompts/           # збирання промтів з блоків (за skill §9)
-│   │   │   ├── builder.py
-│   │   │   └── blocks/        # role, rules_uk, rules_en, suffixes, censorship, glossary, context, format
-│   │   │                      # джерела: ja, ko, en; цілі: uk, en (2026-11-11)
-│   │   ├── llm_schema.py      # схема JSON-відповіді + валідація
-│   │   ├── glossary.py        # пошук термінів чанка, застосування рішень
+│   │   │   ├── builder.py     # переклад, редагування, резюме; глосарій лише для чанка
+│   │   │   ├── rules_uk.py    # правила для української (зі skill)
+│   │   │   └── rules_en.py    # чернетка правил для англійської (на перевірку)
+│   │   ├── llm_schema.py      # розбір і валідація JSON-відповіді
 │   │   ├── refusal.py         # виявлення відмов/спотворень моделі
-│   │   ├── censorship.py      # CensorshipLevel + правила
-│   │   ├── orchestrator.py    # TranslationJob: цикл чанків, стан, відновлення
-│   │   └── errors.py          # класифіковані помилки провайдера
+│   │   └── redact.py          # маскування ключів у логах і повідомленнях
 │   │
 │   ├── services/              # інтеграції з зовнішнім світом через інтерфейси
-│   │   ├── providers/
+│   │   ├── translator.py      # TranslationJob runner: цикл чанків, ротація, відновлення [✓]
+│   │   ├── library.py         # імпорт книги в БД                                       [✓]
+│   │   ├── providers/                                                                    [✓]
 │   │   │   ├── base.py        # Protocol LLMProvider + ProviderInfo
 │   │   │   ├── registry.py
-│   │   │   ├── openai_compat.py   # базовий клас для OpenAI-сумісних
-│   │   │   ├── gemini.py          # OpenAICompatProvider + розбір помилок Google
-│   │   │   └── deepseek.py
-│   │   ├── key_pool.py        # пул акаунтів, cooldown, ротація
-│   │   ├── secrets/
-│   │   │   ├── base.py        # Protocol SecretStore
+│   │   │   ├── openai_compat.py   # базовий клас для OpenAI-сумісних (httpx)
+│   │   │   └── builtin.py         # Gemini, Groq, Mistral, OpenRouter, DeepSeek
+│   │   ├── key_pool.py        # пул акаунтів, cooldown, ротація між провайдерами        [✓]
+│   │   ├── secrets/                                                                      [✓]
+│   │   │   ├── base.py        # Protocol SecretStore, MemorySecretStore
 │   │   │   ├── keyring_store.py
-│   │   │   ├── android_store.py
-│   │   │   └── fernet_store.py
-│   │   ├── importers/         # txt.py, epub.py, cbz.py (+ registry)
-│   │   ├── exporters/         # txt.py, epub.py (виноски), cbz.py (+ registry)
+│   │   │   ├── fernet_store.py
+│   │   │   └── android_store.py   # після Android-спайку
+│   │   ├── importers/         # text.py, epub.py, cbz.py (+ registry)                    [✓]
+│   │   ├── exporters/         # txt.py, epub.py (виноски), cbz.py (+ registry)         [фаза 2]
 │   │   ├── covers.py          # кадрування, накладання назви (Pillow)
 │   │   ├── sync/              # client.py, outbox.py, conflicts.py
 │   │   └── updater/           # github.py, verify.py, installers/{windows,linux,android}.py
 │   │
-│   ├── storage/
-│   │   ├── db.py              # підключення, транзакції, WAL
+│   ├── storage/                                                                          [✓]
+│   │   ├── db.py              # підключення, транзакції, WAL, міграції
 │   │   ├── migrations/        # 0001_init.sql, 0002_…
 │   │   ├── repositories.py    # WorkRepo, SegmentRepo, JobRepo, GlossaryRepo, …
-│   │   ├── settings.py        # AppSettings (pydantic) ↔ settings.json
+│   │   ├── settings.py        # AppSettings (dataclass) ↔ settings.json
 │   │   └── paths.py           # каталоги даних для кожної платформи
 │   │
 │   ├── i18n/
@@ -483,6 +482,10 @@ for attempt in range(MAX_ATTEMPTS):
         mark NEEDS_REVIEW; break
     except ContentRefused: mark NEEDS_REVIEW; break        # або fallback-провайдер, якщо налаштовано
 ```
+
+Реалізація (фаза 1): `services/translator.py`, бо оркестратор використовує сервіси (пул,
+провайдери) і сховище, а `core/` не імпортує `services/`. Події передаються колбеком
+`on_event`.
 
 Події (`EventSink`) для UI: `ChunkStarted`, `ChunkDone(progress, eta, preview)`, `KeySwitched`,
 `WaitingQuota(resume_at)`, `SegmentNeedsReview`, `JobFinished`. UI лише підписується.
