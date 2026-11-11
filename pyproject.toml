@@ -48,3 +48,5 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # Cyrillic/CJK characters in strings an
 [tool.ruff.lint.per-file-ignores]
 # Test fixtures hold long CJK strings (ruff counts them as double width).
 "tests/**" = ["E501"]
+# Prompt rules are prose; one rule per line reads better than wrapped strings.
+"src/ranobe/core/prompts/rules_*.py" = ["E501"]
