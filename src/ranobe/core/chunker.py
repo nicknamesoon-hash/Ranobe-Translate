@@ -7,11 +7,8 @@ the preset or this algorithm never breaks a paused translation.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import TypeVar
 
 from ranobe.core.tokens import estimate_tokens
-
-T = TypeVar("T")
 
 
 def take_chunk[T](segments: Iterable[T], budget_tokens: int, text_of=lambda s: s.source) -> list[T]:
