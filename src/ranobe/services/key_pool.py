@@ -70,12 +70,16 @@ class KeyPool:
             ordered = sorted(all_accounts.values(), key=lambda a: (a.priority, a.label))
         return [a for a in ordered if a.enabled]
 
-    async def acquire(self, account_ids: list[str] | None = None) -> Lease:
+    async def acquire(
+        self, account_ids: list[str] | None = None, exclude_providers: frozenset[str] = frozenset()
+    ) -> Lease:
         while True:
             now = self.clock()
             candidates: list[tuple[float, ProviderAccount, str]] = []
             blocked_until: list[datetime] = []
             for acc in self.chain(account_ids):
+                if acc.provider_id in exclude_providers:
+                    continue
                 until = max(
                     (t for t in (acc.cooldown_until, acc.exhausted_until) if t), default=None
                 )

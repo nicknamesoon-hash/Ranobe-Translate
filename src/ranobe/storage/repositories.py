@@ -305,6 +305,13 @@ class GlossaryRepo:
              e.note, e.origin, int(e.locked), _ts(utcnow())),
         )  # fmt: skip
 
+    def add_if_missing(self, e: GlossaryEntry) -> bool:
+        """For model suggestions: never touch an existing entry. Returns True if added."""
+        if self._find(e.work_id, e.source):
+            return False
+        self.upsert(e)
+        return True
+
     def _find(self, work_id: UUID | None, source: str) -> GlossaryEntry | None:
         row = self.db.conn.execute(
             """SELECT * FROM glossary WHERE COALESCE(work_id, '') = ? AND source = ?

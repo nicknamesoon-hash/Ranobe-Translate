@@ -131,3 +131,10 @@ async def test_no_accounts(setup):
     with pytest.raises(AllAccountsUnavailable) as info:
         await pool.acquire()
     assert info.value.resume_at is None
+
+
+async def test_exclude_providers(setup):
+    pool, add, _ = setup
+    add("gemini", "g1", 10)
+    add("groq", "q1", 20)
+    assert (await pool.acquire(exclude_providers=frozenset({"gemini"}))).account.label == "q1"
