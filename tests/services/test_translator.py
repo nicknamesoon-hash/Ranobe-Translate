@@ -336,9 +336,13 @@ async def test_two_pass_edit_replaces_draft(env, monkeypatch):
 
     def handler(req, key):
         if req.system.startswith("You are a literary editor"):
+            assert "Ігри слів і реалії" in req.system  # skill §10 checklist
             segs = segments_in(req.user)
             body = {
-                "segments": [{"id": s["id"], "translation": s["draft"] + " (ред.)"} for s in segs],
+                "segments": [
+                    {"id": s["id"], "translation": s["draft"] + " (ред.)", "censored": True}
+                    for s in segs
+                ],
                 "changes": ["polish"],
             }
             return ChatResponse(json.dumps(body, ensure_ascii=False), "stop")
@@ -348,8 +352,9 @@ async def test_two_pass_edit_replaces_draft(env, monkeypatch):
     work = make_work(repos, n_chapters=1, preset="quality", with_summary=False)
     t = make()
     await t.run(t.create_job(work).id)
-    para = next(s for s in all_segments(repos, work) if s.kind is SegmentKind.PARAGRAPH)
-    assert para.translation.endswith("(ред.)")
+    paras = [s for s in all_segments(repos, work) if s.kind is SegmentKind.PARAGRAPH]
+    assert all(p.translation.endswith("(ред.)") for p in paras)
+    assert all(p.censored for p in paras)  # the editor may soften; the flag is kept
 
 
 async def test_plot_summary_updates(env, monkeypatch):

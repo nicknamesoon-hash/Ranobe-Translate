@@ -33,3 +33,15 @@ HONORIFICS = {
 }
 
 HONORIFICS_ALWAYS = "A change of honorific or form of address is often a plot point: do not smooth it over, and add a note in adapt/drop modes. Keigo → formal register; rude speech (ore, teme, kisama) → blunt, rough colloquial register."
+
+# Mirrors skill section 10, for the editing pass.
+CHECKLIST = """\
+- Meaning preserved, nothing omitted or added.
+- Names and terms match the glossary.
+- Honorifics follow the chosen mode; changes of honorific are not smoothed over.
+- Each character's voice is consistent.
+- No translationese, calques or needless passive voice.
+- Typography: double quotes for dialogue, a single ellipsis character …
+- Wordplay and realia are either adapted or have a note.
+- The content level is respected and changed fragments are marked (censored).
+- The text reads naturally aloud."""

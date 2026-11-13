@@ -186,21 +186,17 @@ def build_edit_prompt(
     draft and could 'fix' names)."""
     tgt = LANGUAGE_NAMES.get(work.target_lang, work.target_lang)
     terms = relevant_glossary(glossary, chunk.source_text)
-    checklist = (
-        "Checklist: meaning preserved, nothing omitted or added; names and terms match the "
-        "glossary; honorifics follow the chosen mode; each character's voice is consistent; "
-        "no calques or needless passive voice; correct typography; the text reads naturally "
-        "aloud; the content level is respected."
-    )
+    rules = _RULES.get(work.target_lang, rules_en)
     blocks = [
         f"You are a literary editor of {tgt} translations of light novels. Improve each draft "
         f"against its original. Keep meaning, names and terms. Change only what needs changing.",
         _rules_block(work),
-        CENSORSHIP[CensorshipLevel(work.settings.censorship)],
+        CENSORSHIP[CensorshipLevel(work.settings.censorship)] + " " + CENSORSHIP_ALWAYS,
         _glossary_block(terms),
-        checklist,
-        'Reply with ONE JSON object: {"segments": [{"id": "s1", "translation": "..."}], '
-        '"changes": ["short description of each change"]}. Return every segment exactly once.',
+        "Check every draft against this list:\n" + rules.CHECKLIST,
+        'Reply with ONE JSON object: {"segments": [{"id": "s1", "translation": "...", '
+        '"censored": false}], "changes": ["short description of each change"]}. Return every '
+        "segment exactly once.",
     ]
     system = "\n\n".join(b for b in blocks if b)
     user = "Segments:\n" + json.dumps(

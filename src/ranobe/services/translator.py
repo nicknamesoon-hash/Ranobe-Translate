@@ -353,6 +353,8 @@ class Translator:
             return draft
         for local_id, seg_result in edited.segments.items():
             draft.segments[local_id].translation = seg_result.translation
+            # Softened by either pass means softened: the flag is never cleared by the editor.
+            draft.segments[local_id].censored |= seg_result.censored
         draft.changes = edited.changes
         return draft
 
