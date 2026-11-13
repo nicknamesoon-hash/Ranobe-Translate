@@ -181,6 +181,20 @@ class SegmentRepo:
         ).fetchall()
         return [self._from_row(r) for r in rows]
 
+    def get(self, segment_id: UUID) -> Segment | None:
+        row = self.db.conn.execute(
+            "SELECT * FROM segments WHERE id = ? AND deleted = 0", (str(segment_id),)
+        ).fetchone()
+        return self._from_row(row) if row else None
+
+    def work_id_of(self, segment_id: UUID) -> UUID | None:
+        row = self.db.conn.execute(
+            """SELECT c.work_id FROM segments s JOIN chapters c ON c.id = s.chapter_id
+               WHERE s.id = ?""",
+            (str(segment_id),),
+        ).fetchone()
+        return UUID(row[0]) if row else None
+
     def pending(self, chapter_ids: list[UUID], limit: int = 200) -> list[Segment]:
         """Next untranslated segments in reading order across the given chapters."""
         result: list[Segment] = []
@@ -259,19 +273,47 @@ class DisputeRepo:
              _ts(utcnow())),
         )  # fmt: skip
 
+    def get(self, dispute_id: UUID) -> Dispute | None:
+        row = self.db.conn.execute(
+            "SELECT * FROM disputes WHERE id = ? AND deleted = 0", (str(dispute_id),)
+        ).fetchone()
+        return self._from_row(row) if row else None
+
+    def save_resolution(self, d: Dispute) -> None:
+        self.db.conn.execute(
+            """UPDATE disputes SET chosen = ?, custom_text = ?, resolved_at = ?, updated_at = ?,
+                   rev = rev + 1 WHERE id = ?""",
+            (d.chosen, d.custom_text, _ts(d.resolved_at), _ts(utcnow()), str(d.id)),
+        )
+
     def for_segment(self, segment_id: UUID) -> list[Dispute]:
         rows = self.db.conn.execute(
             "SELECT * FROM disputes WHERE segment_id = ? AND deleted = 0", (str(segment_id),)
         ).fetchall()
-        return [
-            Dispute(id=UUID(r["id"]), segment_id=UUID(r["segment_id"]),
-                    source_fragment=r["source_fragment"], issue=r["issue"],
-                    options=[DisputeOption(**o) for o in json.loads(r["options"])],
-                    recommended=r["recommended"], add_to_glossary=bool(r["add_to_glossary"]),
-                    chosen=r["chosen"], custom_text=r["custom_text"],
-                    resolved_at=_dt(r["resolved_at"]))
-            for r in rows
-        ]  # fmt: skip
+        return [self._from_row(r) for r in rows]
+
+    def for_work(self, work_id: UUID, unresolved_only: bool = False) -> list[Dispute]:
+        """Disputes of a work in reading order (chapter, then segment)."""
+        rows = self.db.conn.execute(
+            f"""SELECT d.* FROM disputes d JOIN segments s ON s.id = d.segment_id
+                JOIN chapters c ON c.id = s.chapter_id
+                WHERE c.work_id = ? AND d.deleted = 0
+                {"AND d.resolved_at IS NULL" if unresolved_only else ""}
+                ORDER BY c.idx, s.idx""",
+            (str(work_id),),
+        ).fetchall()
+        return [self._from_row(r) for r in rows]
+
+    @staticmethod
+    def _from_row(r: sqlite3.Row) -> Dispute:
+        return Dispute(
+            id=UUID(r["id"]), segment_id=UUID(r["segment_id"]),
+            source_fragment=r["source_fragment"], issue=r["issue"],
+            options=[DisputeOption(**o) for o in json.loads(r["options"])],
+            recommended=r["recommended"], add_to_glossary=bool(r["add_to_glossary"]),
+            chosen=r["chosen"], custom_text=r["custom_text"],
+            resolved_at=_dt(r["resolved_at"]),
+        )  # fmt: skip
 
     def unresolved_count(self, work_id: UUID) -> int:
         return self.db.conn.execute(

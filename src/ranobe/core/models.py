@@ -178,6 +178,14 @@ class Dispute:
     custom_text: str | None = None
     resolved_at: datetime | None = None
 
+    @property
+    def current_text(self) -> str:
+        """The option that is in the translation now: the user's choice, else the recommended."""
+        if self.custom_text is not None:
+            return self.custom_text
+        index = self.chosen if self.chosen is not None else self.recommended
+        return self.options[index].text
+
 
 @dataclass
 class Note:
