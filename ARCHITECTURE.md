@@ -124,7 +124,7 @@ ranobe-translator/
 │   │   ├── settings.py        # AppSettings (dataclass) ↔ settings.json
 │   │   └── paths.py           # каталоги даних для кожної платформи
 │   │
-│   ├── i18n/
+│   ├── i18n/                                                                     [фаза 3 ✓]
 │   │   ├── __init__.py        # t(), set_locale(), on_locale_change()
 │   │   ├── plural.py
 │   │   └── locales/{uk,en}.json
@@ -132,14 +132,15 @@ ranobe-translator/
 │   ├── help/                  # сторінки довідки
 │   │   └── {uk,en}/*.md
 │   │
-│   └── ui/                    # єдине місце, що імпортує flet
-│       ├── app.py             # page setup, тема, маршрути
+│   └── ui/                    # єдине місце, що імпортує flet                   [фаза 3 ✓]
+│       ├── app.py             # page setup, тема, маршрути; src/main.py — вхід для flet build
+│       ├── context.py         # UiContext: стан + навігація, діалоги, фонові задачі, FilePicker
 │       ├── state.py           # AppState (observable), зв'язок із сервісами
 │       ├── theme/             # tokens.py (кольори, типографіка, відступи, тривалості), theme.py
 │       ├── components/        # AppButton, SegmentRow, NoteBadge, DisputeCard, StatusChip, EmptyState…
 │       ├── layout/            # shell.py (rail/bottom bar), breakpoints.py
-│       └── views/             # library, work_detail, translate, editor, reader,
-│                              # cover_editor, glossary, accounts, settings, help, about
+│       └── views/             # library, translate, accounts, settings [✓]; далі work_detail,
+│                              # editor, reader, cover_editor, glossary, help, about
 ├── tests/
 │   ├── core/  services/  storage/  i18n/
 │   ├── fixtures/              # маленькі TXT/EPUB у UTF-8, Shift_JIS, GBK; записані відповіді LLM
@@ -686,6 +687,16 @@ set_locale("en")  # викликає підписників → UI перебу�
 - Мова інтерфейсу не залежить від мов перекладу. Мови перекладу зберігаються кодами BCP-47,
   назви беруться з i18n.
 
+**Реалізація (фаза 3).** `AppState` (`ui/state.py`) не імпортує Flet: тримає репозиторії,
+налаштування й сховище секретів, сповіщає підписників за темами (`works`, `accounts`,
+`settings`, `progress`). `Shell` перебудовує поточний екран, коли змінилася тема, на яку він
+підписаний, а при зміні маршруту, breakpoint, мови чи теми оформлення — і навігацію. Екран =
+клас із `topics` і `build()`; UI-пам'ять (пошук, вибраний твір, розділи) — у `ViewMemory`.
+Переклад і перевірка ключів ідуть фоновими задачами (`page.run_task`), пауза = скасування
+задачі; `Translator` при скасуванні зберігає стан, тож наступний запуск продовжує з місця.
+Smoke-тест рендерить кожен маршрут на 360/800/1440 px обома мовами з фейковою сторінкою;
+візуально UI перевірено у веб-режимі (`python -m ranobe --web`).
+
 ## 9. Дизайн-система
 
 `ui/theme/tokens.py` — єдине джерело значень, компоненти не використовують «магічних» чисел.
@@ -695,7 +706,10 @@ set_locale("en")  # викликає підписників → UI перебу�
   `note.<type>`, `dispute.highlight`.
 - **Типографіка:** шкала M3 (display / headline / title / body / label); окремий токен
   `reading` для тексту перекладу (розмір і міжрядковий інтервал налаштовуються в читанні).
-  Шрифт з підтримкою кирилиці й CJK (Noto Sans + Noto Sans JP/SC, вбудовані в збірку).
+  Шрифт: вбудований Noto Sans (variable, OFL) для інтерфейсу; японський і корейський текст
+  рендериться системними fallback-шрифтами (Windows, Android і більшість Linux їх мають), тож
+  ~20 МБ CJK-шрифтів у збірку не додаємо. Якщо на якійсь платформі будуть квадратики, додамо
+  Noto Sans JP/KR.
 - **Відступи:** 4 · 8 · 12 · 16 · 24 · 32 · 48. **Радіуси:** 4 · 8 · 16 · 28.
 - **Тривалості анімацій:** `fast=150ms` (наведення, чипи), `normal=250ms` (появи, панелі),
   `slow=400ms` (переходи сторінок); крива `EASE_OUT_CUBIC`. Налаштування «зменшити анімації»

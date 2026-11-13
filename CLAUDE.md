@@ -20,4 +20,5 @@
 ## Команди
 - Тести: `pytest -q`
 - Лінт: `ruff check . --fix && ruff format .`
+- Застосунок: `python -m ranobe` (потрібен `pip install -e .[ui]`), у браузері: `python -m ranobe --web`
 - Ядро без UI: `python -m ranobe.cli --help`

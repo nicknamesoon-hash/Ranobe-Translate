@@ -3,15 +3,16 @@
 Context-aware light novel translator (ja / ko / en → uk / en) powered by free-tier LLM APIs.
 Rewrite of the original CustomTkinter app. See `ARCHITECTURE.md` and `ROADMAP.md`.
 
-Status: phase 2 (core and editor logic without UI).
+Status: phase 3 (desktop UI: library, translation, accounts, settings).
 
 ## Development
 
 ```
 python -m venv .venv
-.venv/bin/pip install -e ".[dev]"      # Windows: .venv\Scripts\pip ...
+.venv/bin/pip install -e ".[dev,ui]"   # Windows: .venv\Scripts\pip ...
 pytest
 ruff check . && ruff format --check .
+python -m ranobe                       # the app (add --web to open it in a browser)
 python -m ranobe.cli --help
 ```
 

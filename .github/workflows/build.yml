@@ -1,0 +1,44 @@
+# App builds for every push to main, kept as workflow artifacts.
+# Not run yet: the project has no GitHub repository so far. Expect to adjust it on the first run.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows
+          - os: ubuntu-latest
+            target: linux
+          - os: ubuntu-latest
+            target: apk
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - if: matrix.target == 'apk'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev
+      - run: python -m pip install -e ".[ui]"
+      - run: flet build ${{ matrix.target }} src --module-name main --yes --verbose
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ranobe-translator-${{ matrix.target }}
+          path: src/build/${{ matrix.target }}
+          if-no-files-found: error

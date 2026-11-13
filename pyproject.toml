@@ -54,3 +54,16 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # Cyrillic/CJK characters in strings an
 "tests/**" = ["E501"]
 # Prompt rules are prose; one rule per line reads better than wrapped strings.
 "src/ranobe/core/prompts/rules_*.py" = ["E501"]
+
+# `flet build` settings (see .github/workflows/build.yml).
+[tool.flet]
+org = "io.github.ranobe"
+product = "Ranobe Translator"
+company = "Ranobe Translator"
+
+[tool.flet.app]
+path = "src"
+module = "main"
+
+[tool.flet.android]
+min_sdk_version = 31  # Android 12+
