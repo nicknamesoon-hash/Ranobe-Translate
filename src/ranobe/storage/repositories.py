@@ -187,6 +187,15 @@ class SegmentRepo:
         ).fetchone()
         return self._from_row(row) if row else None
 
+    def previous(self, segment: Segment) -> Segment | None:
+        """The segment just before this one in the same chapter."""
+        row = self.db.conn.execute(
+            """SELECT * FROM segments WHERE chapter_id = ? AND idx < ? AND deleted = 0
+               ORDER BY idx DESC LIMIT 1""",
+            (str(segment.chapter_id), segment.index),
+        ).fetchone()
+        return self._from_row(row) if row else None
+
     def work_id_of(self, segment_id: UUID) -> UUID | None:
         row = self.db.conn.execute(
             """SELECT c.work_id FROM segments s JOIN chapters c ON c.id = s.chapter_id
@@ -259,6 +268,13 @@ class NoteRepo:
             (_ts(utcnow()), str(note_id)),
         )
 
+    def delete_model_notes(self, segment_id: UUID) -> None:
+        self.db.conn.execute(
+            """UPDATE notes SET deleted = 1, updated_at = ?, rev = rev + 1
+               WHERE segment_id = ? AND origin = 'llm' AND deleted = 0""",
+            (_ts(utcnow()), str(segment_id)),
+        )
+
     def get(self, note_id: UUID) -> Note | None:
         row = self.db.conn.execute(
             "SELECT * FROM notes WHERE id = ? AND deleted = 0", (str(note_id),)
@@ -318,6 +334,13 @@ class DisputeRepo:
             """UPDATE disputes SET chosen = ?, custom_text = ?, resolved_at = ?, updated_at = ?,
                    rev = rev + 1 WHERE id = ?""",
             (d.chosen, d.custom_text, _ts(d.resolved_at), _ts(utcnow()), str(d.id)),
+        )
+
+    def delete_unresolved(self, segment_id: UUID) -> None:
+        self.db.conn.execute(
+            """UPDATE disputes SET deleted = 1, updated_at = ?, rev = rev + 1
+               WHERE segment_id = ? AND resolved_at IS NULL AND deleted = 0""",
+            (_ts(utcnow()), str(segment_id)),
         )
 
     def for_segment(self, segment_id: UUID) -> list[Dispute]:

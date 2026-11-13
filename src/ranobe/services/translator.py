@@ -12,7 +12,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import UUID
 
@@ -29,6 +29,7 @@ from ranobe.core.errors import (
 )
 from ranobe.core.llm_schema import TranslationResult, parse_translation
 from ranobe.core.models import (
+    CensorshipLevel,
     Dispute,
     DisputeOption,
     GlossaryEntry,
@@ -170,6 +171,50 @@ class Translator:
         counts = self.repos.segments.count_by_status(job.chapter_ids)
         total = sum(counts.values())
         return total - counts[SegmentStatus.PENDING], total, counts[SegmentStatus.NEEDS_REVIEW]
+
+    async def retranslate_segment(
+        self, segment_id: UUID, censorship: CensorshipLevel | None = None
+    ) -> Segment:
+        """Translate one segment again, optionally with another content level.
+
+        The work's own settings stay unchanged. The previous paragraph and the latest plot
+        summary are given as context. The segment's model notes and unresolved disputes are
+        replaced by the new reply; user notes and resolved disputes are kept.
+        """
+        segment = self.repos.segments.get(segment_id)
+        work_id = self.repos.segments.work_id_of(segment_id)
+        work = self.repos.works.get(work_id) if work_id else None
+        if segment is None or work is None:
+            raise KeyError(f"segment {segment_id} not found")
+        if censorship is not None:
+            work.settings = replace(work.settings, censorship=censorship)
+        context = self._context_job(work, segment)
+        chunk = PromptChunk([segment])
+        glossary = self.repos.glossary.for_work(work.id)
+        try:
+            result, lease = await self._translate(work, context, chunk, glossary)
+        except _ChunkUnresolvable as e:
+            self._flag(segment, e.reason)
+            return segment
+        if work.settings.preset.two_pass:
+            result = await self._edit_pass(work, context, chunk, glossary, result)
+        with self.repos.db.transaction():
+            self.repos.notes.delete_model_notes(segment.id)
+            self.repos.disputes.delete_unresolved(segment.id)
+            self._store_result(work, chunk, result, lease)
+        return segment
+
+    def _context_job(self, work: Work, segment: Segment) -> TranslationJob:
+        """An unsaved job that only carries context for a one-off request."""
+        latest = self.repos.jobs.latest_for_work(work.id)
+        context = TranslationJob(work_id=work.id, chapter_ids=[segment.chapter_id])
+        context.plot_summary = latest.plot_summary if latest else ""
+        previous = self.repos.segments.previous(segment)
+        if previous and previous.translation:
+            tail = work.settings.preset.tail_chars
+            context.last_source_tail = previous.source[-tail:]
+            context.last_translation_tail = previous.translation[-tail:]
+        return context
 
     # --- chunk processing ---
 
@@ -336,60 +381,8 @@ class Translator:
         result: TranslationResult,
         lease: Lease,
     ) -> None:
-        by_local = dict(zip(chunk.ids, chunk.segments, strict=True))
-        needs_review = 0
         with self.repos.db.transaction():
-            for local_id, seg in by_local.items():
-                seg_result = result.segments[local_id]
-                seg.translation = seg.machine_translation = seg_result.translation
-                seg.censored = seg_result.censored
-                seg.translated_by = lease.label
-                reason = review_reason(
-                    seg.source, seg_result.translation, work.source_lang, work.target_lang
-                )
-                seg.status = SegmentStatus.NEEDS_REVIEW if reason else SegmentStatus.TRANSLATED
-                seg.review_reason = reason
-                needs_review += bool(reason)
-                self.repos.segments.save(seg)
-            # A thing is explained once per work: drop notes the work already has.
-            seen = {
-                note_key(n.source_fragment, n.anchor) for n in self.repos.notes.for_work(work.id)
-            }
-            fresh = [n for n in result.notes if n.first_occurrence]
-            for n in first_occurrences(
-                fresh, lambda n: note_key(n.source_fragment, n.anchor), seen
-            ):
-                self.repos.notes.add(
-                    Note(
-                        segment_id=by_local[n.segment].id,
-                        type=n.type,
-                        anchor=n.anchor,
-                        source_fragment=n.source_fragment,
-                        text=n.text,
-                        first_occurrence=n.first_occurrence,
-                    )
-                )
-            for d in result.disputes:
-                self.repos.disputes.add(
-                    Dispute(
-                        segment_id=by_local[d.segment].id,
-                        source_fragment=d.source_fragment,
-                        issue=d.issue,
-                        options=[DisputeOption(t, r) for t, r in d.options],
-                        recommended=d.recommended,
-                        add_to_glossary=d.add_to_glossary,
-                    )
-                )
-            for g in result.glossary_suggestions:
-                self.repos.glossary.add_if_missing(
-                    GlossaryEntry(
-                        source=g.source,
-                        target=g.target,
-                        kind=g.kind,
-                        work_id=work.id,
-                        origin="llm_suggestion",
-                    )
-                )
+            needs_review = self._store_result(work, chunk, result, lease)
             tail = work.settings.preset.tail_chars
             job.last_source_tail = chunk.source_text[-tail:]
             job.last_translation_tail = "\n".join(s.translation or "" for s in chunk.segments)[
@@ -406,6 +399,62 @@ class Translator:
         )
         if needs_review:
             log.info("%d segment(s) flagged for review", needs_review)
+
+    def _store_result(
+        self, work: Work, chunk: PromptChunk, result: TranslationResult, lease: Lease
+    ) -> int:
+        """Write translations, notes, disputes and glossary suggestions of one reply.
+        Must run inside a transaction. Returns how many segments need review."""
+        by_local = dict(zip(chunk.ids, chunk.segments, strict=True))
+        needs_review = 0
+        for local_id, seg in by_local.items():
+            seg_result = result.segments[local_id]
+            seg.translation = seg.machine_translation = seg_result.translation
+            seg.censored = seg_result.censored
+            seg.translated_by = lease.label
+            reason = review_reason(
+                seg.source, seg_result.translation, work.source_lang, work.target_lang
+            )
+            seg.status = SegmentStatus.NEEDS_REVIEW if reason else SegmentStatus.TRANSLATED
+            seg.review_reason = reason
+            needs_review += bool(reason)
+            self.repos.segments.save(seg)
+        # A thing is explained once per work: drop notes the work already has.
+        seen = {note_key(n.source_fragment, n.anchor) for n in self.repos.notes.for_work(work.id)}
+        fresh = [n for n in result.notes if n.first_occurrence]
+        for n in first_occurrences(fresh, lambda n: note_key(n.source_fragment, n.anchor), seen):
+            self.repos.notes.add(
+                Note(
+                    segment_id=by_local[n.segment].id,
+                    type=n.type,
+                    anchor=n.anchor,
+                    source_fragment=n.source_fragment,
+                    text=n.text,
+                    first_occurrence=n.first_occurrence,
+                )
+            )
+        for d in result.disputes:
+            self.repos.disputes.add(
+                Dispute(
+                    segment_id=by_local[d.segment].id,
+                    source_fragment=d.source_fragment,
+                    issue=d.issue,
+                    options=[DisputeOption(t, r) for t, r in d.options],
+                    recommended=d.recommended,
+                    add_to_glossary=d.add_to_glossary,
+                )
+            )
+        for g in result.glossary_suggestions:
+            self.repos.glossary.add_if_missing(
+                GlossaryEntry(
+                    source=g.source,
+                    target=g.target,
+                    kind=g.kind,
+                    work_id=work.id,
+                    origin="llm_suggestion",
+                )
+            )
+        return needs_review
 
 
 class _SplitNeeded(Exception):

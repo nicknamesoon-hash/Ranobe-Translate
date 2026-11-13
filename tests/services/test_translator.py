@@ -6,7 +6,10 @@ import pytest
 
 from ranobe.core.errors import ContentRefused, OutputTruncated, QuotaExhausted, RateLimited
 from ranobe.core.models import (
+    CensorshipLevel,
     JobState,
+    Note,
+    NoteType,
     ProviderAccount,
     SegmentKind,
     SegmentStatus,
@@ -392,3 +395,68 @@ async def test_refusal_text_flags_segment(env, monkeypatch):
         s.review_reason for s in all_segments(repos, work) if s.kind is SegmentKind.PARAGRAPH
     }
     assert reasons == {"refusal"}
+
+
+async def test_retranslate_segment_with_other_content_level(env, monkeypatch):
+    small_chunks(monkeypatch)
+    repos, registry, add, make, _ = env
+    add("gemini", "g1", 10)
+    level = {"family": False}
+
+    def handler(req, key):
+        family = "Content level: FAMILY" in req.system
+        level["family"] |= family
+        segs = segments_in(req.user)
+        body = {
+            "segments": [
+                {"id": s["id"], "translation": ("FAM" if family else "UK") + f"[{s['text']}]",
+                 "censored": family}
+                for s in segs
+            ],
+            "notes": [{"segment": "s1", "type": "term", "anchor": "UK",
+                       "source_fragment": s["text"], "text": "Модель."} for s in segs[:1]],
+            "disputes": [{"segment": "s1", "source_fragment": "文", "issue": "?", "recommended": 0,
+                          "options": [{"text": "A", "rationale": ""}, {"text": "B", "rationale": ""}]}],
+        }  # fmt: skip
+        return ChatResponse(json.dumps(body, ensure_ascii=False), "stop")
+
+    registry.on("gemini", handler)
+    work = make_work(repos, n_chapters=1, per_chapter=3, with_summary=False)
+    t = make()
+    await t.run(t.create_job(work).id)
+    paras = [s for s in all_segments(repos, work) if s.kind is SegmentKind.PARAGRAPH]
+    target, before = paras[1], paras[0]
+    user_note = Note(segment_id=target.id, type=NoteType.TERM, anchor="x", source_fragment="",
+                     text="Моя.", origin="user")  # fmt: skip
+    repos.notes.add(user_note)
+    calls_before = len(registry.calls)
+
+    seg = await t.retranslate_segment(target.id, CensorshipLevel.FAMILY)
+
+    assert seg.translation.startswith("FAM[") and seg.censored
+    assert repos.segments.get(target.id).machine_translation == seg.translation
+    assert repos.works.get(work.id).settings.censorship is CensorshipLevel.ORIGINAL
+    [(_, _, _, user)] = registry.calls[calls_before:]
+    assert "do NOT translate it again" in user and before.source in user
+    texts = sorted(n.text for n in repos.notes.for_segment(target.id))
+    assert texts == ["Модель.", "Моя."]
+    assert len(repos.disputes.for_segment(target.id)) == 1
+
+
+async def test_retranslate_refused_segment_is_flagged(env, monkeypatch):
+    small_chunks(monkeypatch)
+    repos, registry, add, make, _ = env
+    add("gemini", "g1", 10)
+    registry.on("gemini", lambda req, key: echo_reply(req.user))
+    work = make_work(repos, n_chapters=1, per_chapter=1, with_summary=False)
+    t = make()
+    await t.run(t.create_job(work).id)
+    para = next(s for s in all_segments(repos, work) if s.kind is SegmentKind.PARAGRAPH)
+
+    def refuse(req, key):
+        raise ContentRefused("blocked")
+
+    registry.on("gemini", refuse)
+    seg = await t.retranslate_segment(para.id, CensorshipLevel.ORIGINAL)
+    assert seg.status is SegmentStatus.NEEDS_REVIEW and seg.review_reason == "refused"
+    assert repos.segments.get(para.id).translation == f"UK[{para.source}]"
