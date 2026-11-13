@@ -13,6 +13,7 @@ dependencies = [
     "charset-normalizer>=3.4,<4",
     "keyring>=25,<26",
     "cryptography>=44",
+    "pillow>=11",
 ]
 
 [project.optional-dependencies]
