@@ -4,7 +4,7 @@
 
 **Перекладач ранобе й веб-новел з японської, корейської та англійської на українську (і англійську), який пам'ятає контекст.**
 
-[![CI](https://github.com/nicknamesoon-hash/ranobe-translate/actions/workflows/ci.yml/badge.svg)](https://github.com/nicknamesoon-hash/ranobe-translate/actions/workflows/ci.yml)
+[![CI](https://github.com/nicknamesoon-hash/Ranobe-Translate/actions/workflows/ci.yml/badge.svg)](https://github.com/nicknamesoon-hash/Ranobe-Translate/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20·%20Linux%20·%20Android-lightgrey)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
@@ -50,11 +50,11 @@
 
 ## Встановлення
 
-Готових збірок ще немає (з'являться в [Releases](https://github.com/nicknamesoon-hash/ranobe-translate/releases)). Поки що запуск із коду, потрібен Python 3.12+:
+Готових збірок ще немає (з'являться в [Releases](https://github.com/nicknamesoon-hash/Ranobe-Translate/releases)). Поки що запуск із коду, потрібен Python 3.12+:
 
 ```bash
-git clone https://github.com/nicknamesoon-hash/ranobe-translate.git
-cd ranobe-translate
+git clone https://github.com/nicknamesoon-hash/Ranobe-Translate.git
+cd Ranobe-Translate
 python -m venv .venv
 .venv\Scripts\pip install -e ".[ui]"      # Linux/macOS: .venv/bin/pip
 .venv\Scripts\python -m ranobe            # або: python -m ranobe --web (у браузері)

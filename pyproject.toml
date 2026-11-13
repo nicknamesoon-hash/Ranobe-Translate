@@ -19,8 +19,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/nicknamesoon-hash/ranobe-translate"
-Issues = "https://github.com/nicknamesoon-hash/ranobe-translate/issues"
+Homepage = "https://github.com/nicknamesoon-hash/Ranobe-Translate"
+Issues = "https://github.com/nicknamesoon-hash/Ranobe-Translate/issues"
 
 [project.optional-dependencies]
 ui = [
