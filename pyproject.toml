@@ -16,6 +16,10 @@ dependencies = [
     "pillow>=11",
 ]
 
+[project.urls]
+Homepage = "https://github.com/nicknamesoon-hash/ranobe-translate"
+Issues = "https://github.com/nicknamesoon-hash/ranobe-translate/issues"
+
 [project.optional-dependencies]
 ui = [
     "flet[all]==1.1.2",  # pinned: Flet APIs change between versions
