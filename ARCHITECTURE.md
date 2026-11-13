@@ -89,11 +89,15 @@ ranobe-translator/
 │   │   │   ├── rules_uk.py    # правила для української (зі skill)
 │   │   │   └── rules_en.py    # чернетка правил для англійської (на перевірку)
 │   │   ├── llm_schema.py      # розбір і валідація JSON-відповіді
+│   │   ├── notes.py           # правило «примітка лише при першій появі»          [фаза 2 ✓]
+│   │   ├── footnotes.py       # місце маркера примітки в тексті (для експортерів)  [фаза 2 ✓]
 │   │   ├── refusal.py         # виявлення відмов/спотворень моделі
 │   │   └── redact.py          # маскування ключів у логах і повідомленнях
 │   │
 │   ├── services/              # інтеграції з зовнішнім світом через інтерфейси
-│   │   ├── translator.py      # TranslationJob runner: цикл чанків, ротація, відновлення [✓]
+│   │   ├── translator.py      # TranslationJob runner: цикл чанків, ротація, відновлення,
+│   │   │                      # повторний переклад сегмента з іншим рівнем цензури      [✓]
+│   │   ├── editor.py          # спірні моменти, примітки, черга пропозицій глосарію   [фаза 2 ✓]
 │   │   ├── library.py         # імпорт книги в БД                                       [✓]
 │   │   ├── providers/                                                                    [✓]
 │   │   │   ├── base.py        # Protocol LLMProvider + ProviderInfo
@@ -107,14 +111,15 @@ ranobe-translator/
 │   │   │   ├── fernet_store.py
 │   │   │   └── android_store.py   # після Android-спайку
 │   │   ├── importers/         # text.py, epub.py, cbz.py (+ registry)                    [✓]
-│   │   ├── exporters/         # txt.py, epub.py (виноски), cbz.py (+ registry)         [фаза 2]
+│   │   ├── exporters/         # txt.py, epub.py (виноски), cbz.py (+ registry)       [фаза 2 ✓]
 │   │   ├── covers.py          # кадрування, накладання назви (Pillow)
 │   │   ├── sync/              # client.py, outbox.py, conflicts.py
 │   │   └── updater/           # github.py, verify.py, installers/{windows,linux,android}.py
 │   │
+│   ├── assets/fonts/          # Noto Serif Regular/Bold + OFL.txt (для CBZ)          [фаза 2 ✓]
 │   ├── storage/                                                                          [✓]
 │   │   ├── db.py              # підключення, транзакції, WAL, міграції
-│   │   ├── migrations/        # 0001_init.sql, 0002_…
+│   │   ├── migrations/        # 0001_init.sql, 0002_glossary_review.sql
 │   │   ├── repositories.py    # WorkRepo, SegmentRepo, JobRepo, GlossaryRepo, …
 │   │   ├── settings.py        # AppSettings (dataclass) ↔ settings.json
 │   │   └── paths.py           # каталоги даних для кожної платформи
@@ -315,7 +320,8 @@ notes(id PK, segment_id FK, type, anchor, source_fragment, text, first_occurrenc
 disputes(id PK, segment_id FK, source_fragment, issue, options JSON, recommended,
          chosen, custom_text, add_to_glossary, resolved_at, updated_at, rev, deleted)
 glossary(id PK, work_id FK NULL, source, target, kind, note, origin, locked,
-         updated_at, rev, deleted)                             UNIQUE(work_id, source)
+         review, updated_at, rev, deleted)                     UNIQUE(work_id, source)
+         -- review: none | pending (пропозиція моделі, чекає на рішення) | rejected
 bookmarks(id PK, work_id, segment_id, label, created_at, rev, deleted)
 covers(id PK, work_id, sha256, mime, width, height, blob_path, updated_at, rev)
 jobs(id PK, work_id, state, chapter_ids JSON, plot_summary, last_source_tail,
@@ -563,6 +569,24 @@ EPUB-експорт: розділ = XHTML-файл; примітки як EPUB3 
 більшості читалок відкриваються спливаючим вікном; обкладинка, метадані (автор, жанри,
 анотація), стабільний `urn:uuid:` з `Work.id`.
 
+**Реалізовано у фазі 2.** `collect_book(repos, work)` збирає `ExportBook`: розділ, що
+починається сегментом-заголовком, бере його переклад як назву (у тексті заголовок не
+повторюється); неперекладені сегменти йдуть оригіналом. Маркер примітки ставиться одразу
+після першої появи `anchor` у перекладі (`core/footnotes.py`); якщо anchor зник після
+редагування, примітка не губиться, а йде в кінець абзацу. `ExportOptions`: `side_by_side`,
+`with_notes`, `cover`, а для CBZ `page_size` і `font_size`.
+
+- **TXT:** маркери `[n]`, список приміток після кожного розділу.
+- **EPUB 3:** `mimetype` першим і без стиснення, `nav.xhtml` і `toc.ncx` (для старих читалок),
+  виноски noteref/aside, обкладинка (`properties="cover-image"`), `dcterms:modified` з
+  `Work.updated_at`, тож повторний експорт дає ідентичний OPF. Перевірка `epubcheck` іде
+  окремою задачею в CI (локально потрібна Java).
+- **CBZ:** сторінки PNG у відтінках сірого, рендер через Pillow вбудованим Noto Serif (OFL,
+  працює й на Android). Обкладинка або згенерований титул першою сторінкою, кожен розділ з
+  нової сторінки, примітки внизу тієї сторінки, де стоїть маркер, `ComicInfo.xml` з метаданими.
+  Обмеження: шрифт без CJK, тому неперекладені японські абзаци в CBZ показуються квадратиками;
+  side-by-side у CBZ не підтримується.
+
 ## 6. Редактор
 
 - **Side-by-side:** список сегментів, кожен рядок = оригінал | переклад, віртуалізований
@@ -579,6 +603,22 @@ EPUB-експорт: розділ = XHTML-файл; примітки як EPUB3 
 - **Цензура:** рівень у налаштуваннях твору впливає на промт; сегменти з `censored=true`
   позначені, щоб було видно, де текст змінено; для будь-якого сегмента є дія «перекласти
   заново з іншим рівнем».
+- **Логіка без UI (фаза 2, `services/editor.py` і `Translator.retranslate_segment`):**
+  - `Editor.resolve_dispute(id, chosen=… | custom=…)` замінює поточний варіант (рекомендований
+    або попередній вибір) у перекладі лише свого сегмента, ставить сегменту `EDITED`; якщо
+    користувач уже переписав фрагмент вручну, текст не чіпається (`applied=False`), але рішення
+    й запис у глосарій зберігаються.
+  - Примітки: `add_note` / `update_note` / `delete_note` (м'яке видалення для синхронізації).
+    Примітки моделі зберігаються лише для першої появи фрагмента в усьому творі; примітки
+    користувача ніколи не відкидаються.
+  - Глосарій: пропозиції моделі мають `review="pending"`; вони вже йдуть у промт (послідовність
+    перекладу), але чекають на рішення. `accept_suggestion` (можна з іншим перекладом) робить
+    запис `locked`, `reject_suggestion` ховає його з промтів і не дає моделі запропонувати знову.
+  - `retranslate_segment(id, censorship)` перекладає один сегмент з іншим рівнем, не змінюючи
+    налаштувань твору; контекст = попередній абзац + останнє резюме. Примітки моделі й
+    нерозв'язані спірні цього сегмента замінюються новими.
+  - Другий прохід (редагування) отримує чекліст skill §10 мовою перекладу (`rules_*.CHECKLIST`)
+    і повертає `censored`; прапорець, поставлений будь-яким проходом, не знімається.
 - **Відмови моделей:** `refusal.detect` спрацьовує на порожню відповідь, фрази-відмови,
   `finish_reason=content_filter`, відношення довжини перекладу до оригіналу нижче порогу для
   мови. Сегмент отримує `NEEDS_REVIEW`, ніколи не підставляється мовчки.

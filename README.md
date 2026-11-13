@@ -3,7 +3,7 @@
 Context-aware light novel translator (ja / ko / en → uk / en) powered by free-tier LLM APIs.
 Rewrite of the original CustomTkinter app. See `ARCHITECTURE.md` and `ROADMAP.md`.
 
-Status: phase 1 (core without UI).
+Status: phase 2 (core and editor logic without UI).
 
 ## Development
 
@@ -15,7 +15,7 @@ ruff check . && ruff format --check .
 python -m ranobe.cli --help
 ```
 
-## Trying the core (phase 1)
+## Trying the core
 
 ```
 python -m ranobe.cli providers                       # where to get free keys
@@ -25,7 +25,11 @@ python -m ranobe.cli accounts test
 python -m ranobe.cli import book.epub --from ja --to uk
 python -m ranobe.cli translate <id>                  # Ctrl+C pauses, run again to resume
 python -m ranobe.cli status <id>
-python -m ranobe.cli export <id> out.txt --side-by-side
+python -m ranobe.cli disputes list <id>                # open disputes, * = in the text
+python -m ranobe.cli disputes resolve <dispute> --option 2   # or --custom "..."
+python -m ranobe.cli glossary list <id> --pending      # model suggestions to review
+python -m ranobe.cli glossary accept <entry> [--target "..."]
+python -m ranobe.cli export <id> book.epub --cover cover.jpg  # also .txt, .cbz
 ```
 
 Data lives in `%APPDATA%\RanobeTranslator` (Windows) or `~/.local/share/ranobe-translator`

@@ -1,4 +1,6 @@
+import os
 import re
+import subprocess
 import xml.etree.ElementTree as ET
 import zipfile
 from uuid import uuid4
@@ -213,3 +215,18 @@ def test_cbz_cover_and_page_breaks(book, tmp_path):
     )
     pages = [n for n in zipfile.ZipFile(out).namelist() if n.endswith(".png")]
     assert len(pages) > 4  # cover + several pages for the long paragraph + chapter 2
+
+
+@pytest.mark.skipif(
+    not os.environ.get("EPUBCHECK_JAR"), reason="EPUBCHECK_JAR not set (runs in CI)"
+)
+def test_epubcheck_accepts_export(book, tmp_path):
+    cover = tmp_path / "cover.jpg"
+    Image.new("RGB", (600, 900), "navy").save(cover)
+    _epub(book, tmp_path, cover=cover, side_by_side=True)
+    result = subprocess.run(
+        ["java", "-jar", os.environ["EPUBCHECK_JAR"], str(tmp_path / "book.epub")],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
