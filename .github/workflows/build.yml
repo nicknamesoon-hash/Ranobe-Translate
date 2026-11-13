@@ -1,5 +1,4 @@
 # App builds for every push to main, kept as workflow artifacts.
-# Not run yet: the project has no GitHub repository so far. Expect to adjust it on the first run.
 name: Build
 
 on:
@@ -20,6 +19,9 @@ jobs:
           - os: ubuntu-latest
             target: apk
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "1"  # the Windows console is cp1252 by default
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,7 +38,23 @@ jobs:
           sudo apt-get install -y ninja-build libgtk-3-dev libgstreamer1.0-dev \
             libgstreamer-plugins-base1.0-dev
       - run: python -m pip install -e ".[ui]"
-      - run: flet build ${{ matrix.target }} src --module-name main --yes --verbose
+      - name: flet build
+        shell: bash
+        run: |
+          set -o pipefail
+          flet build ${{ matrix.target }} src --module-name main --yes --verbose 2>&1 | tee build.log
+      # Logs need a GitHub login to read; annotations do not. Surface the end of a failed log.
+      - name: Report build failure
+        if: failure()
+        shell: bash
+        run: |
+          tail -n 80 build.log | grep -v '^\s*$' | tail -n 40 > tail.log || true
+          python - <<'PY'
+          from pathlib import Path
+          text = Path("tail.log").read_text(encoding="utf-8", errors="replace")
+          text = text.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+          print(f"::error title=flet build ${{ matrix.target }}::{text}")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: ranobe-translator-${{ matrix.target }}
