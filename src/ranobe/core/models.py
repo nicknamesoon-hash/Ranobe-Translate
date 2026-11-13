@@ -209,6 +209,9 @@ class GlossaryEntry:
     note: str | None = None
     origin: Literal["user", "dispute", "llm_suggestion"] = "user"
     locked: bool = False
+    # Model suggestions start "pending" (used in prompts, waiting for the user's review);
+    # "rejected" entries are hidden from prompts but stop the model suggesting them again.
+    review: Literal["none", "pending", "rejected"] = "none"
     id: UUID = field(default_factory=new_id)
 
 

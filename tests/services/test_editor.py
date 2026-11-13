@@ -6,6 +6,7 @@ from ranobe.core.models import (
     Chapter,
     Dispute,
     DisputeOption,
+    GlossaryEntry,
     NoteType,
     Segment,
     SegmentStatus,
@@ -186,3 +187,49 @@ def test_first_occurrences_rule():
     kept = first_occurrences(items, lambda i: note_key(*i), seen)
     assert kept == [("剣聖", "Святий Меч"), ("", "Святий меч")]
     assert note_key("", " Святий МЕЧ ") in seen
+
+
+# --- glossary suggestions ---------------------------------------------------------------
+
+
+def _suggest(repos, work, source, target):
+    entry = GlossaryEntry(
+        source=source, target=target, work_id=work.id, origin="llm_suggestion", review="pending"
+    )
+    assert repos.glossary.add_if_missing(entry)
+    return entry
+
+
+def test_suggestions_wait_in_queue_and_are_used_meanwhile(repos, book):
+    work, *_ = book
+    entry = _suggest(repos, work, "魔力", "мана")
+    assert [e.id for e in repos.glossary.pending(work.id)] == [entry.id]
+    assert [e.target for e in repos.glossary.for_work(work.id)] == ["мана"]
+
+
+def test_accept_suggestion_locks_it(repos, book):
+    work, *_ = book
+    entry = _suggest(repos, work, "魔力", "мана")
+    Editor(repos).accept_suggestion(entry.id, target="магічна сила")
+    stored = repos.glossary.get(entry.id)
+    assert (stored.target, stored.locked, stored.review) == ("магічна сила", True, "none")
+    assert repos.glossary.pending(work.id) == []
+    # A later model suggestion cannot overwrite the user's decision.
+    _ = repos.glossary.add_if_missing(
+        GlossaryEntry(source="魔力", target="мана", work_id=work.id, origin="llm_suggestion")
+    )
+    assert repos.glossary.get(entry.id).target == "магічна сила"
+
+
+def test_reject_suggestion_hides_it_and_blocks_resuggesting(repos, book):
+    work, *_ = book
+    repos.glossary.upsert(GlossaryEntry(source="魔力", target="магічна енергія"))  # global
+    entry = _suggest(repos, work, "魔力", "мана")
+    Editor(repos).reject_suggestion(entry.id)
+    assert repos.glossary.pending(work.id) == []
+    assert [e.target for e in repos.glossary.for_work(work.id)] == ["магічна енергія"]
+    assert not repos.glossary.add_if_missing(
+        GlossaryEntry(source="魔力", target="мана", work_id=work.id, review="pending")
+    )
+    with pytest.raises(KeyError):
+        Editor(repos).accept_suggestion(entry.id)

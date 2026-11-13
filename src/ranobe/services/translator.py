@@ -454,6 +454,7 @@ class Translator:
                     kind=g.kind,
                     work_id=work.id,
                     origin="llm_suggestion",
+                    review="pending",
                 )
             )
         return needs_review

@@ -32,10 +32,10 @@ def _work_with_segments(repos, n=3):
 
 def test_migration_sets_version(tmp_path):
     db = Database(tmp_path / "a.db")
-    assert db.version == 1
+    assert db.version == 2
     db.close()
     db = Database(tmp_path / "a.db")  # second open does not re-run migrations
-    assert db.version == 1
+    assert db.version == 2
 
 
 def test_work_round_trip(repos):
@@ -132,3 +132,26 @@ def test_settings_round_trip_ignores_unknown(tmp_path):
     p.write_text(p.read_text().replace("{", '{"unknown": 1,', 1))
     assert AppSettings.load(p).ui_locale == "en"
     assert AppSettings.load(tmp_path / "missing.json").ui_locale == "uk"
+
+
+def test_migration_0002_queues_existing_suggestions(tmp_path):
+    path = tmp_path / "old.db"
+    db = Database(path)
+    db.conn.execute("DROP TABLE glossary")
+    db.conn.execute(
+        """CREATE TABLE glossary (id TEXT PRIMARY KEY, work_id TEXT, source TEXT NOT NULL,
+           target TEXT NOT NULL, kind TEXT NOT NULL, note TEXT, origin TEXT NOT NULL,
+           locked INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+           rev INTEGER NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0)"""
+    )
+    db.conn.execute(
+        "INSERT INTO glossary VALUES ('a', NULL, '魔力', 'мана', 'term', NULL, "
+        "'llm_suggestion', 0, '2026-01-01', 1, 0)"
+    )
+    db.conn.execute("PRAGMA user_version = 1")
+    db.close()
+    db = Database(path)
+    assert db.version == 2
+    row = db.conn.execute("SELECT review FROM glossary WHERE id = 'a'").fetchone()
+    assert row[0] == "pending"
+    db.close()

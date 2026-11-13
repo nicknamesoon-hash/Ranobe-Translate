@@ -395,13 +395,14 @@ class GlossaryRepo:
             e.id = existing.id
         self.db.conn.execute(
             """INSERT INTO glossary (id, work_id, source, target, kind, note, origin, locked,
-                   updated_at, rev)
-               VALUES (?,?,?,?,?,?,?,?,?,1)
+                   review, updated_at, rev)
+               VALUES (?,?,?,?,?,?,?,?,?,?,1)
                ON CONFLICT(id) DO UPDATE SET target=excluded.target, kind=excluded.kind,
                    note=excluded.note, origin=excluded.origin, locked=excluded.locked,
-                   updated_at=excluded.updated_at, rev=glossary.rev + 1""",
+                   review=excluded.review, updated_at=excluded.updated_at,
+                   rev=glossary.rev + 1""",
             (str(e.id), str(e.work_id) if e.work_id else None, e.source, e.target, e.kind.value,
-             e.note, e.origin, int(e.locked), _ts(utcnow())),
+             e.note, e.origin, int(e.locked), e.review, _ts(utcnow())),
         )  # fmt: skip
 
     def add_if_missing(self, e: GlossaryEntry) -> bool:
@@ -419,11 +420,27 @@ class GlossaryRepo:
         ).fetchone()
         return self._from_row(row) if row else None
 
+    def get(self, entry_id: UUID) -> GlossaryEntry | None:
+        row = self.db.conn.execute(
+            "SELECT * FROM glossary WHERE id = ? AND deleted = 0", (str(entry_id),)
+        ).fetchone()
+        return self._from_row(row) if row else None
+
+    def pending(self, work_id: UUID) -> list[GlossaryEntry]:
+        """Model suggestions of a work waiting for the user's review."""
+        rows = self.db.conn.execute(
+            """SELECT * FROM glossary WHERE work_id = ? AND review = 'pending' AND deleted = 0
+               ORDER BY source""",
+            (str(work_id),),
+        ).fetchall()
+        return [self._from_row(r) for r in rows]
+
     def for_work(self, work_id: UUID) -> list[GlossaryEntry]:
-        """Work entries plus global ones; a work entry shadows a global entry."""
+        """Work entries plus global ones; a work entry shadows a global entry.
+        Rejected suggestions are left out."""
         rows = self.db.conn.execute(
             """SELECT * FROM glossary WHERE (work_id = ? OR work_id IS NULL) AND deleted = 0
-               ORDER BY work_id IS NULL, source""",
+               AND review != 'rejected' ORDER BY work_id IS NULL, source""",
             (str(work_id),),
         ).fetchall()
         seen: dict[str, GlossaryEntry] = {}
@@ -437,7 +454,7 @@ class GlossaryRepo:
         return GlossaryEntry(
             id=UUID(r["id"]), work_id=_uuid(r["work_id"]), source=r["source"],
             target=r["target"], kind=GlossaryKind(r["kind"]), note=r["note"],
-            origin=r["origin"], locked=bool(r["locked"]),
+            origin=r["origin"], locked=bool(r["locked"]), review=r["review"],
         )  # fmt: skip
 
 

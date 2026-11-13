@@ -81,6 +81,31 @@ class Editor:
                 self.repos.glossary.upsert(entry)
         return DisputeResolution(dispute, applied, entry)
 
+    # --- glossary suggestions ---
+
+    def accept_suggestion(self, entry_id: UUID, target: str | None = None) -> GlossaryEntry:
+        """Confirm a model suggestion, optionally with another rendering. The entry becomes
+        locked, so the model can no longer change it."""
+        entry = self._suggestion(entry_id)
+        if target is not None:
+            entry.target = _required(target, "target")
+        entry.locked, entry.review = True, "none"
+        self.repos.glossary.upsert(entry)
+        return entry
+
+    def reject_suggestion(self, entry_id: UUID) -> None:
+        """Hide a suggestion from prompts. It stays stored so the model does not suggest the
+        same term again."""
+        entry = self._suggestion(entry_id)
+        entry.review = "rejected"
+        self.repos.glossary.upsert(entry)
+
+    def _suggestion(self, entry_id: UUID) -> GlossaryEntry:
+        entry = self.repos.glossary.get(entry_id)
+        if entry is None or entry.review != "pending":
+            raise KeyError(f"no pending glossary suggestion {entry_id}")
+        return entry
+
     # --- notes ---
 
     def add_note(
