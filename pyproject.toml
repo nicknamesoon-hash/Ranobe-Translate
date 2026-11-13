@@ -17,6 +17,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ui = [
+    "flet[all]==1.1.2",  # pinned: Flet APIs change between versions
+]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.25",

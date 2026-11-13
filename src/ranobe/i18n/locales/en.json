@@ -1,0 +1,15 @@
+{
+  "app.title": "Ranobe Translator",
+  "nav.library": "Library",
+  "nav.translate": "Translate",
+  "nav.accounts": "Accounts",
+  "nav.settings": "Settings",
+  "common.cancel": "Cancel",
+  "common.save": "Save",
+  "common.delete": "Delete",
+  "common.close": "Close",
+  "export.format.txt": "Plain text (TXT)",
+  "export.format.epub": "E-book (EPUB)",
+  "export.format.cbz": "Page images (CBZ)",
+  "library.works": {"one": "{n} work", "other": "{n} works"}
+}

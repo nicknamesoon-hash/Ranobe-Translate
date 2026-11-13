@@ -1,0 +1,15 @@
+{
+  "app.title": "Ranobe Translator",
+  "nav.library": "Бібліотека",
+  "nav.translate": "Переклад",
+  "nav.accounts": "Акаунти",
+  "nav.settings": "Налаштування",
+  "common.cancel": "Скасувати",
+  "common.save": "Зберегти",
+  "common.delete": "Видалити",
+  "common.close": "Закрити",
+  "export.format.txt": "Текст (TXT)",
+  "export.format.epub": "Електронна книжка (EPUB)",
+  "export.format.cbz": "Сторінки-зображення (CBZ)",
+  "library.works": {"one": "{n} твір", "few": "{n} твори", "many": "{n} творів"}
+}
