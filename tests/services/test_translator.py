@@ -326,7 +326,8 @@ async def test_refused_segment_tries_other_provider_then_flags(env, monkeypatch)
     flagged = [s for s in all_segments(repos, work) if s.status is SegmentStatus.NEEDS_REVIEW]
     assert len(flagged) == 1 and flagged[0].review_reason == "refused"
     refused_calls = [c[0] for c in registry.calls if "文0-1" in c[3]]
-    assert refused_calls == ["gemini", "groq"]
+    # Order depends on which account's rate-limit slot is free first (real clock).
+    assert sorted(refused_calls) == ["gemini", "groq"]
 
 
 async def test_two_pass_edit_replaces_draft(env, monkeypatch):

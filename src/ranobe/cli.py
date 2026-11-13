@@ -4,7 +4,9 @@
     python -m ranobe.cli import book.epub --from ja --to uk
     python -m ranobe.cli translate <work-id-prefix>
     python -m ranobe.cli status <work-id-prefix>
-    python -m ranobe.cli export <work-id-prefix> out.txt
+    python -m ranobe.cli disputes list <work-id-prefix>
+    python -m ranobe.cli glossary list <work-id-prefix> --pending
+    python -m ranobe.cli export <work-id-prefix> book.epub
 
 Ctrl+C pauses safely; `translate` again resumes from the first untranslated segment.
 """
@@ -25,11 +27,19 @@ from ranobe.core.models import (
     HonorificsMode,
     JobState,
     ProviderAccount,
-    SegmentKind,
     SegmentStatus,
     Work,
 )
 from ranobe.core.redact import install_log_redaction
+from ranobe.services.editor import Editor
+from ranobe.services.exporters import (
+    ExportOptions,
+    UnknownFormat,
+    collect_book,
+    exporter_for_path,
+    exporter_ids,
+    get_exporter,
+)
 from ranobe.services.importers import ImportFailed, UnsupportedFormat
 from ranobe.services.key_pool import KeyPool
 from ranobe.services.library import import_file
@@ -260,18 +270,91 @@ def cmd_translate(args: argparse.Namespace) -> None:
 
 
 def cmd_export(args: argparse.Namespace) -> None:
-    """Plain text export for checking results. Full exporters (EPUB, CBZ) come in phase 2."""
     repos, _ = _open()
     work = _work(repos, args.work)
-    lines: list[str] = []
-    for ch in repos.chapters.for_work(work.id):
-        for seg in repos.segments.for_chapter(ch.id):
-            text = seg.translation if seg.translation else f"[{seg.status.value}] {seg.source}"
-            if args.side_by_side and seg.kind is not SegmentKind.SEPARATOR:
-                text = f"{seg.source}\n{text}"
-            lines.append(text)
-    Path(args.out).write_text("\n\n".join(lines) + "\n", encoding="utf-8")
-    print(f"wrote {args.out}")
+    out = Path(args.out)
+    try:
+        exporter = get_exporter(args.format) if args.format else exporter_for_path(out)
+    except UnknownFormat:
+        raise CliError(f"unknown format; choose from {', '.join(exporter_ids())}") from None
+    opts = ExportOptions(
+        side_by_side=args.side_by_side,
+        with_notes=args.notes,
+        cover=Path(args.cover) if args.cover else None,
+    )
+    try:
+        exporter.export(collect_book(repos, work), opts, out)
+    except (OSError, ValueError) as e:
+        raise CliError(f"export failed: {e}") from None
+    print(f"wrote {out} ({exporter.id})")
+
+
+def cmd_disputes_list(args: argparse.Namespace) -> None:
+    repos, _ = _open()
+    work = _work(repos, args.work)
+    disputes = repos.disputes.for_work(work.id, unresolved_only=not args.all)
+    for d in disputes:
+        state = "resolved" if d.resolved_at else "open"
+        print(f"{str(d.id)[:8]} [{state}] {d.source_fragment}: {d.issue}")
+        for i, option in enumerate(d.options, start=1):
+            mark = "*" if option.text == d.current_text else " "
+            print(f"   {mark}{i}. {option.text} — {option.rationale}")
+        if d.custom_text is not None:
+            print(f"   *   {d.custom_text} (custom)")
+    print(f"{len(disputes)} dispute(s)")
+
+
+def cmd_disputes_resolve(args: argparse.Namespace) -> None:
+    repos, _ = _open()
+    dispute = repos.disputes.find(args.id)
+    if dispute is None:
+        raise CliError(f"no single dispute matches '{args.id}'")
+    chosen = args.option - 1 if args.option is not None else None
+    try:
+        result = Editor(repos).resolve_dispute(dispute.id, chosen=chosen, custom=args.custom)
+    except ValueError as e:
+        raise CliError(str(e)) from None
+    print(f"«{dispute.source_fragment}» → «{result.dispute.current_text}»")
+    if not result.applied:
+        print("  the old text was not found in the translation (edited by hand); check it")
+    if result.glossary_entry:
+        print("  added to the glossary as a fixed entry")
+
+
+def cmd_glossary_list(args: argparse.Namespace) -> None:
+    repos, _ = _open()
+    work = _work(repos, args.work)
+    entries = repos.glossary.pending(work.id) if args.pending else repos.glossary.for_work(work.id)
+    for e in entries:
+        flags = " [fixed]" if e.locked else (" [suggested]" if e.review == "pending" else "")
+        scope = "" if e.work_id else " (global)"
+        print(f"{str(e.id)[:8]} {e.source} = {e.target}{flags}{scope}")
+    print(f"{len(entries)} entr{'y' if len(entries) == 1 else 'ies'}")
+
+
+def _suggestion_action(args: argparse.Namespace, accept: bool) -> None:
+    repos, _ = _open()
+    entry = repos.glossary.find(args.id)
+    if entry is None:
+        raise CliError(f"no single glossary entry matches '{args.id}'")
+    editor = Editor(repos)
+    try:
+        if accept:
+            entry = editor.accept_suggestion(entry.id, target=args.target)
+            print(f"accepted {entry.source} = {entry.target}")
+        else:
+            editor.reject_suggestion(entry.id)
+            print(f"rejected {entry.source} = {entry.target}")
+    except KeyError:
+        raise CliError("this entry is not a pending suggestion") from None
+
+
+def cmd_glossary_accept(args: argparse.Namespace) -> None:
+    _suggestion_action(args, accept=True)
+
+
+def cmd_glossary_reject(args: argparse.Namespace) -> None:
+    _suggestion_action(args, accept=False)
 
 
 # --- parser ---
@@ -326,11 +409,43 @@ def build_parser() -> argparse.ArgumentParser:
         tr.add_argument(f"--{flag}", action=argparse.BooleanOptionalAction, default=None)
     tr.set_defaults(func=cmd_translate)
 
-    ex = sub.add_parser("export", help="export translation as plain text")
+    ex = sub.add_parser("export", help="export the translation (TXT, EPUB, CBZ)")
     ex.add_argument("work")
     ex.add_argument("out")
+    ex.add_argument("--format", choices=exporter_ids(), help="default: from the file extension")
     ex.add_argument("--side-by-side", action="store_true", help="original above translation")
+    ex.add_argument("--notes", action=argparse.BooleanOptionalAction, default=True)
+    ex.add_argument("--cover", help="JPEG or PNG cover image")
     ex.set_defaults(func=cmd_export)
+
+    dis = sub.add_parser("disputes", help="review disputed translations").add_subparsers(
+        dest="disputes_command", required=True
+    )
+    dl = dis.add_parser("list", help="open disputes of a work (* = in the text now)")
+    dl.add_argument("work")
+    dl.add_argument("--all", action="store_true", help="include resolved disputes")
+    dl.set_defaults(func=cmd_disputes_list)
+    dr = dis.add_parser("resolve", help="choose an option or your own text")
+    dr.add_argument("id", help="dispute id prefix")
+    choice = dr.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--option", type=int, help="option number as listed (1, 2, ...)")
+    choice.add_argument("--custom", help="your own text")
+    dr.set_defaults(func=cmd_disputes_resolve)
+
+    glo = sub.add_parser("glossary", help="glossary and model suggestions").add_subparsers(
+        dest="glossary_command", required=True
+    )
+    gl = glo.add_parser("list", help="glossary of a work")
+    gl.add_argument("work")
+    gl.add_argument("--pending", action="store_true", help="only suggestions to review")
+    gl.set_defaults(func=cmd_glossary_list)
+    ga = glo.add_parser("accept", help="confirm a suggestion (it becomes fixed)")
+    ga.add_argument("id", help="entry id prefix")
+    ga.add_argument("--target", help="use another rendering")
+    ga.set_defaults(func=cmd_glossary_accept)
+    gr = glo.add_parser("reject", help="hide a suggestion from prompts")
+    gr.add_argument("id", help="entry id prefix")
+    gr.set_defaults(func=cmd_glossary_reject)
     return p
 
 

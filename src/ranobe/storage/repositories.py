@@ -329,6 +329,13 @@ class DisputeRepo:
         ).fetchone()
         return self._from_row(row) if row else None
 
+    def find(self, prefix: str) -> Dispute | None:
+        """Find by id prefix (for the CLI)."""
+        rows = self.db.conn.execute(
+            "SELECT * FROM disputes WHERE id LIKE ? AND deleted = 0", (prefix + "%",)
+        ).fetchall()
+        return self._from_row(rows[0]) if len(rows) == 1 else None
+
     def save_resolution(self, d: Dispute) -> None:
         self.db.conn.execute(
             """UPDATE disputes SET chosen = ?, custom_text = ?, resolved_at = ?, updated_at = ?,
@@ -425,6 +432,13 @@ class GlossaryRepo:
             "SELECT * FROM glossary WHERE id = ? AND deleted = 0", (str(entry_id),)
         ).fetchone()
         return self._from_row(row) if row else None
+
+    def find(self, prefix: str) -> GlossaryEntry | None:
+        """Find by id prefix (for the CLI)."""
+        rows = self.db.conn.execute(
+            "SELECT * FROM glossary WHERE id LIKE ? AND deleted = 0", (prefix + "%",)
+        ).fetchall()
+        return self._from_row(rows[0]) if len(rows) == 1 else None
 
     def pending(self, work_id: UUID) -> list[GlossaryEntry]:
         """Model suggestions of a work waiting for the user's review."""
