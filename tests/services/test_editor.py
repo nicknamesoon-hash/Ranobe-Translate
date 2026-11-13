@@ -1,14 +1,18 @@
+from uuid import uuid4
+
 import pytest
 
 from ranobe.core.models import (
     Chapter,
     Dispute,
     DisputeOption,
+    NoteType,
     Segment,
     SegmentStatus,
     TranslationJob,
     Work,
 )
+from ranobe.core.notes import first_occurrences, note_key
 from ranobe.core.prompts.builder import PromptChunk, build_translation_prompt
 from ranobe.services.editor import Editor
 
@@ -137,3 +141,48 @@ def test_disputes_for_work_in_reading_order(repos, book):
     assert [d.id for d in repos.disputes.for_work(work.id)] == [dispute.id, later.id]
     Editor(repos).resolve_dispute(dispute.id, chosen=0)
     assert [d.id for d in repos.disputes.for_work(work.id, unresolved_only=True)] == [later.id]
+
+
+# --- notes -------------------------------------------------------------------------------
+
+
+def test_note_crud(repos, book):
+    work, _, first, second, _ = book
+    editor = Editor(repos)
+    note = editor.add_note(second.id, " Святий Меч ", "Титул найкращого мечника.")
+    assert (note.origin, note.type, note.anchor) == (
+        "user",
+        NoteType.TRANSLATOR_CHOICE,
+        "Святий Меч",
+    )
+
+    editor.update_note(note.id, text="Новий текст.", type=NoteType.TERM, display="tooltip")
+    stored = repos.notes.get(note.id)
+    assert (stored.text, stored.type, stored.display) == ("Новий текст.", NoteType.TERM, "tooltip")
+
+    early = editor.add_note(first.id, "прийшов", "Ранній сегмент.")
+    assert [n.id for n in repos.notes.for_work(work.id)] == [early.id, note.id]
+
+    editor.delete_note(note.id)
+    assert repos.notes.get(note.id) is None
+    assert repos.notes.for_segment(second.id) == []
+
+
+def test_note_validation(repos, book):
+    *_, second, _ = book
+    editor = Editor(repos)
+    with pytest.raises(ValueError):
+        editor.add_note(second.id, "  ", "text")
+    note = editor.add_note(second.id, "Меч", "text")
+    with pytest.raises(ValueError):
+        editor.update_note(note.id, display="popup")
+    with pytest.raises(KeyError):
+        editor.delete_note(uuid4())
+
+
+def test_first_occurrences_rule():
+    seen = {note_key("お盆", "")}
+    items = [("お盆", "Обон"), ("剣聖", "Святий Меч"), ("", "Святий меч"), ("", "")]
+    kept = first_occurrences(items, lambda i: note_key(*i), seen)
+    assert kept == [("剣聖", "Святий Меч"), ("", "Святий меч")]
+    assert note_key("", " Святий МЕЧ ") in seen

@@ -244,17 +244,51 @@ class NoteRepo:
              int(n.first_occurrence), n.display, n.origin, _ts(utcnow())),
         )  # fmt: skip
 
+    def update(self, n: Note) -> None:
+        self.db.conn.execute(
+            """UPDATE notes SET type = ?, anchor = ?, source_fragment = ?, text = ?,
+                   display = ?, updated_at = ?, rev = rev + 1 WHERE id = ?""",
+            (n.type.value, n.anchor, n.source_fragment, n.text, n.display, _ts(utcnow()),
+             str(n.id)),
+        )  # fmt: skip
+
+    def delete(self, note_id: UUID) -> None:
+        """Soft delete, so the deletion can be synced later."""
+        self.db.conn.execute(
+            "UPDATE notes SET deleted = 1, updated_at = ?, rev = rev + 1 WHERE id = ?",
+            (_ts(utcnow()), str(note_id)),
+        )
+
+    def get(self, note_id: UUID) -> Note | None:
+        row = self.db.conn.execute(
+            "SELECT * FROM notes WHERE id = ? AND deleted = 0", (str(note_id),)
+        ).fetchone()
+        return self._from_row(row) if row else None
+
     def for_segment(self, segment_id: UUID) -> list[Note]:
         rows = self.db.conn.execute(
             "SELECT * FROM notes WHERE segment_id = ? AND deleted = 0", (str(segment_id),)
         ).fetchall()
-        return [
-            Note(id=UUID(r["id"]), segment_id=UUID(r["segment_id"]), type=NoteType(r["type"]),
-                 anchor=r["anchor"], source_fragment=r["source_fragment"], text=r["text"],
-                 first_occurrence=bool(r["first_occurrence"]), display=r["display"],
-                 origin=r["origin"])
-            for r in rows
-        ]  # fmt: skip
+        return [self._from_row(r) for r in rows]
+
+    def for_work(self, work_id: UUID) -> list[Note]:
+        """Notes of a work in reading order."""
+        rows = self.db.conn.execute(
+            """SELECT n.* FROM notes n JOIN segments s ON s.id = n.segment_id
+               JOIN chapters c ON c.id = s.chapter_id
+               WHERE c.work_id = ? AND n.deleted = 0 ORDER BY c.idx, s.idx""",
+            (str(work_id),),
+        ).fetchall()
+        return [self._from_row(r) for r in rows]
+
+    @staticmethod
+    def _from_row(r: sqlite3.Row) -> Note:
+        return Note(
+            id=UUID(r["id"]), segment_id=UUID(r["segment_id"]), type=NoteType(r["type"]),
+            anchor=r["anchor"], source_fragment=r["source_fragment"], text=r["text"],
+            first_occurrence=bool(r["first_occurrence"]), display=r["display"],
+            origin=r["origin"],
+        )  # fmt: skip
 
 
 class DisputeRepo:

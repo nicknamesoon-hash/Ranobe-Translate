@@ -9,7 +9,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from ranobe.core.models import Dispute, GlossaryEntry, SegmentStatus, utcnow
+from ranobe.core.models import (
+    Dispute,
+    GlossaryEntry,
+    Note,
+    NoteType,
+    SegmentStatus,
+    utcnow,
+)
 from ranobe.storage.repositories import Repositories
 
 
@@ -73,3 +80,64 @@ class Editor:
                 )
                 self.repos.glossary.upsert(entry)
         return DisputeResolution(dispute, applied, entry)
+
+    # --- notes ---
+
+    def add_note(
+        self,
+        segment_id: UUID,
+        anchor: str,
+        text: str,
+        type: NoteType = NoteType.TRANSLATOR_CHOICE,
+        source_fragment: str = "",
+    ) -> Note:
+        """A note written by the user. Unlike model notes it is never dropped as a repeat."""
+        if self.repos.segments.get(segment_id) is None:
+            raise KeyError(f"segment {segment_id} not found")
+        note = Note(
+            segment_id=segment_id,
+            type=type,
+            anchor=_required(anchor, "anchor"),
+            source_fragment=source_fragment.strip(),
+            text=_required(text, "text"),
+            origin="user",
+        )
+        self.repos.notes.add(note)
+        return note
+
+    def update_note(
+        self,
+        note_id: UUID,
+        *,
+        text: str | None = None,
+        anchor: str | None = None,
+        type: NoteType | None = None,
+        display: str | None = None,
+    ) -> Note:
+        note = self.repos.notes.get(note_id)
+        if note is None:
+            raise KeyError(f"note {note_id} not found")
+        if text is not None:
+            note.text = _required(text, "text")
+        if anchor is not None:
+            note.anchor = _required(anchor, "anchor")
+        if type is not None:
+            note.type = type
+        if display is not None:
+            if display not in ("footnote", "tooltip"):
+                raise ValueError(f"unknown display {display!r}")
+            note.display = display  # type: ignore[assignment]
+        self.repos.notes.update(note)
+        return note
+
+    def delete_note(self, note_id: UUID) -> None:
+        if self.repos.notes.get(note_id) is None:
+            raise KeyError(f"note {note_id} not found")
+        self.repos.notes.delete(note_id)
+
+
+def _required(value: str, name: str) -> str:
+    value = value.strip()
+    if not value:
+        raise ValueError(f"{name} is empty")
+    return value

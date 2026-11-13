@@ -41,6 +41,7 @@ from ranobe.core.models import (
     TranslationStatus,
     Work,
 )
+from ranobe.core.notes import first_occurrences, note_key
 from ranobe.core.prompts.builder import (
     PromptChunk,
     build_edit_prompt,
@@ -350,7 +351,14 @@ class Translator:
                 seg.review_reason = reason
                 needs_review += bool(reason)
                 self.repos.segments.save(seg)
-            for n in result.notes:
+            # A thing is explained once per work: drop notes the work already has.
+            seen = {
+                note_key(n.source_fragment, n.anchor) for n in self.repos.notes.for_work(work.id)
+            }
+            fresh = [n for n in result.notes if n.first_occurrence]
+            for n in first_occurrences(
+                fresh, lambda n: note_key(n.source_fragment, n.anchor), seen
+            ):
                 self.repos.notes.add(
                     Note(
                         segment_id=by_local[n.segment].id,

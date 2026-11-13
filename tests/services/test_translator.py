@@ -166,6 +166,8 @@ async def test_full_translation_commits_everything(env, monkeypatch):
     para = next(s for s in segs if s.kind is SegmentKind.PARAGRAPH)
     assert para.translation == f"UK[{para.source}]" and para.translated_by == "gemini/gemini-model"
     assert repos.notes.for_segment(segs[0].id)[0].text == "Примітка."
+    # Every chunk explains 文 again; only the first occurrence in the work is kept.
+    assert len(repos.notes.for_work(work.id)) == 1
     assert repos.disputes.unresolved_count(work.id) == job.stats.chunks_done
     assert [e.target for e in repos.glossary.for_work(work.id)] == ["текст"]
     assert job.stats.chunks_done > 2 and job.stats.input_tokens == 100 * job.stats.requests
