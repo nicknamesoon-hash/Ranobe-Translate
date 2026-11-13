@@ -8,6 +8,7 @@
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20·%20Linux%20·%20Android-lightgrey)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [English summary](#english) · [Можливості](#можливості) · [Встановлення](#встановлення) · [Як це працює](#як-це-працює) · [Дорожня карта](ROADMAP.md)
 
@@ -101,6 +102,10 @@ ruff check . && ruff format --check .
 ## English
 
 Ranobe Translator is a desktop (and, soon, Android) app that translates light novels and web novels from Japanese, Korean and English into Ukrainian or English using free-tier LLM APIs. It keeps a running plot summary, a per-work glossary and the tail of the previous passage in every request, rotates across keys and providers when a quota runs out, resumes after any interruption, flags disputed renderings and model refusals for review, and exports to TXT, EPUB 3 (pop-up footnotes) and CBZ. Interface in Ukrainian and English. Status: alpha, built with Python and [Flet](https://flet.dev).
+
+## Ліцензія
+
+[MIT](LICENSE). Шрифти мають власну ліцензію, див. нижче.
 
 ## Шрифти й сторонні матеріали
 
