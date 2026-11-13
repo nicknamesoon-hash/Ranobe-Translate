@@ -1,4 +1,4 @@
-"""Entry point for `flet build` (it packages the `src` folder and runs this module)."""
+"""Entry point for `flet build`: it packages `src` (tool.flet.app.path) and runs this module."""
 
 import flet as ft
 

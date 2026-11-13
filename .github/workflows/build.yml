@@ -42,7 +42,9 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          flet build ${{ matrix.target }} src --module-name main --yes --verbose 2>&1 | tee build.log
+          # Run from the project root: flet reads dependencies and [tool.flet] from pyproject.toml
+          # here and packages tool.flet.app.path (src).
+          flet build ${{ matrix.target }} --yes --verbose 2>&1 | tee build.log
       # Logs need a GitHub login to read; annotations do not. Surface the end of a failed log.
       - name: Report build failure
         if: failure()
@@ -58,5 +60,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ranobe-translator-${{ matrix.target }}
-          path: src/build/${{ matrix.target }}
+          path: build/${{ matrix.target }}
           if-no-files-found: error
