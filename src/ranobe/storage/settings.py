@@ -13,6 +13,7 @@ class AppSettings:
     theme: str = "system"  # "light" | "dark" | "system"
     reduce_motion: bool = False
     default_target_lang: str = "uk"
+    default_provider: str = ""  # provider preselected when adding an account
     secret_backend: str = "auto"  # "auto" | "keyring" | "fernet"
 
     @classmethod
