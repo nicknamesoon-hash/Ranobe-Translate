@@ -106,6 +106,9 @@ def test_every_route_renders(state, width, locale, request):
     shell.navigate("/library")
     shell.navigate("/translate")
     assert "テスト" in list(_texts(page.controls))
+    shell.navigate("/editor")
+    texts = list(_texts(page.controls))
+    assert i18n.t("editor.not_translated") in texts and not [t for t in texts if KEY_LIKE.match(t)]
 
 
 def test_layout_switches_on_resize(state, request):

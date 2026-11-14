@@ -4,35 +4,37 @@
   "nav.translate": "Переклад",
   "nav.accounts": "Акаунти",
   "nav.settings": "Налаштування",
-
   "common.cancel": "Скасувати",
   "common.save": "Зберегти",
   "common.delete": "Видалити",
   "common.close": "Закрити",
-
   "lang.ja": "Японська",
   "lang.ko": "Корейська",
   "lang.en": "Англійська",
   "lang.uk": "Українська",
   "locale.uk": "Українська",
   "locale.en": "English",
-
   "status.pending": "Очікує",
   "status.translated": "Перекладено",
   "status.needs_review": "Перевірити",
   "status.reviewed": "Перевірено",
   "status.edited": "Відредаговано",
-
   "time.unknown": "невідомо",
   "time.under_minute": "менше хвилини",
-  "time.minutes": {"one": "{n} хвилина", "few": "{n} хвилини", "many": "{n} хвилин"},
+  "time.minutes": {
+    "one": "{n} хвилина",
+    "few": "{n} хвилини",
+    "many": "{n} хвилин"
+  },
   "time.hours_minutes": "{h} год {m} хв",
-
   "export.format.txt": "Текст (TXT)",
   "export.format.epub": "Електронна книжка (EPUB)",
   "export.format.cbz": "Сторінки-зображення (CBZ)",
-
-  "library.works": {"one": "{n} твір", "few": "{n} твори", "many": "{n} творів"},
+  "library.works": {
+    "one": "{n} твір",
+    "few": "{n} твори",
+    "many": "{n} творів"
+  },
   "library.search": "Пошук за назвою або автором",
   "library.as_grid": "Показати сіткою",
   "library.as_list": "Показати списком",
@@ -47,14 +49,21 @@
   "library.no_results": "Нічого не знайдено",
   "library.no_results_hint": "Спробуйте іншу назву чи ім’я автора.",
   "library.progress": "{done} з {total} абзаців",
-  "library.needs_review": {"one": "{n} абзац треба перевірити", "few": "{n} абзаци треба перевірити", "many": "{n} абзаців треба перевірити"},
-
+  "library.needs_review": {
+    "one": "{n} абзац треба перевірити",
+    "few": "{n} абзаци треба перевірити",
+    "many": "{n} абзаців треба перевірити"
+  },
   "translate.no_work.title": "Твір не вибрано",
   "translate.no_work.hint": "Відкрийте твір у бібліотеці, щоб перекласти його.",
   "translate.start": "Перекласти",
   "translate.pause": "Пауза",
   "translate.chapters": "Розділи",
-  "translate.all_chapters": {"one": "Усі ({n} розділ)", "few": "Усі ({n} розділи)", "many": "Усі ({n} розділів)"},
+  "translate.all_chapters": {
+    "one": "Усі ({n} розділ)",
+    "few": "Усі ({n} розділи)",
+    "many": "Усі ({n} розділів)"
+  },
   "translate.progress": "Прогрес",
   "translate.eta": "Залишилося приблизно: {time}",
   "translate.active_key": "Активний ключ: {account}",
@@ -67,7 +76,6 @@
   "translate.state.waiting_quota": "Усі ключі вичерпали ліміт. Можна продовжити після {time}.",
   "translate.state.no_keys": "Немає доступного ключа: перевірте, що ключі додані, увімкнені й працюють.",
   "translate.state.failed": "Помилка: {error}",
-
   "accounts.intro": "Ключі різних провайдерів працюють як один пул: коли ліміт одного вичерпано, переклад продовжується на наступному. Ключі зберігаються в системному сховищі, а не у файлах програми.",
   "accounts.add": "Додати ключ",
   "accounts.check": "Перевірити ключі",
@@ -97,7 +105,6 @@
   "accounts.status.cooldown": "коротка пауза",
   "accounts.status.quota": "ліміт до {time}",
   "accounts.status.disabled": "вимкнено",
-
   "settings.language": "Мова інтерфейсу",
   "settings.theme": "Тема",
   "settings.theme.light": "Світла",
@@ -108,7 +115,6 @@
   "settings.defaults": "За замовчуванням",
   "settings.default_target": "Мова перекладу для нових творів",
   "settings.default_provider": "Провайдер для нових ключів",
-
   "master.title": "Майстер-пароль",
   "master.title_new": "Створіть майстер-пароль",
   "master.explain": "Системне сховище ключів недоступне, тому API-ключі шифруються паролем. Без нього ключі не прочитати.",
@@ -119,5 +125,14 @@
   "master.unlock": "Продовжити",
   "master.too_short": "Пароль має містити щонайменше 8 символів.",
   "master.mismatch": "Паролі не збігаються.",
-  "master.wrong": "Неправильний пароль."
+  "master.wrong": "Неправильний пароль.",
+  "common.back": "Назад",
+  "editor.no_work.title": "Твір не вибрано",
+  "editor.no_work.hint": "Відкрийте редактор з картки твору в бібліотеці.",
+  "editor.previous_chapter": "Попередній розділ",
+  "editor.next_chapter": "Наступний розділ",
+  "editor.show_original": "Показати оригінал",
+  "editor.not_translated": "ще не перекладено",
+  "library.open_editor": "Редактор",
+  "translate.open_editor": "Редактор"
 }

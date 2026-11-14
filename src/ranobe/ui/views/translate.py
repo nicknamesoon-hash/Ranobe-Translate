@@ -82,7 +82,15 @@ class TranslateView:
             )
         return ft.Column(
             [
-                page_title(work.title, start),
+                page_title(
+                    work.title,
+                    ft.IconButton(
+                        ft.Icons.EDIT_NOTE,
+                        tooltip=t("translate.open_editor"),
+                        on_click=lambda _: self.ctx.navigate("/editor"),
+                    ),
+                    start,
+                ),
                 muted(f"{work.source_lang} → {work.target_lang}"),
                 body,
             ],

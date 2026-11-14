@@ -17,6 +17,7 @@ from ranobe.ui.layout.shell import Shell
 from ranobe.ui.state import AppState
 from ranobe.ui.theme.theme import apply_theme
 from ranobe.ui.views.accounts import AccountsView
+from ranobe.ui.views.editor import EditorView
 from ranobe.ui.views.library import LibraryView
 from ranobe.ui.views.settings import SettingsView
 from ranobe.ui.views.translate import TranslateView
@@ -27,6 +28,7 @@ VIEWS = {
     "/translate": TranslateView,
     "/accounts": AccountsView,
     "/settings": SettingsView,
+    "/editor": EditorView,
 }
 
 

@@ -39,6 +39,8 @@ DESTINATIONS = (
     Destination("/settings", "nav.settings", ft.Icons.SETTINGS_OUTLINED, ft.Icons.SETTINGS),
 )
 ROUTES = tuple(d.route for d in DESTINATIONS)
+# Screens of one work, opened from the library: the navigation highlights their parent.
+PARENT_ROUTES = {"/editor": "/library"}
 
 
 class Shell:
@@ -103,7 +105,7 @@ class Shell:
         self.switcher.duration = self.ctx.durations.slow
         self.switcher.reverse_duration = self.ctx.durations.fast
         self.switcher.content = self._view_container()
-        index = ROUTES.index(self.route)
+        index = ROUTES.index(PARENT_ROUTES.get(self.route, self.route))
         self.page.title = t("app.title")
         if self.ctx.layout is Layout.COMPACT:
             nav = ft.NavigationBar(

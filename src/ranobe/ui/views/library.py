@@ -80,13 +80,20 @@ class LibraryView:
 
     def _tile(self, summary: WorkSummary, grid: bool) -> ft.Control:
         w = summary.work
+        title = ft.Text(
+            w.title,
+            theme_style=ft.TextThemeStyle.TITLE_MEDIUM,
+            max_lines=2,
+            overflow=ft.TextOverflow.ELLIPSIS,
+            expand=True,
+        )
+        editor = ft.IconButton(
+            ft.Icons.EDIT_NOTE,
+            tooltip=t("library.open_editor"),
+            on_click=lambda _, wid=w.id: self._open(wid, "/editor"),
+        )
         lines: list[ft.Control] = [
-            ft.Text(
-                w.title,
-                theme_style=ft.TextThemeStyle.TITLE_MEDIUM,
-                max_lines=2,
-                overflow=ft.TextOverflow.ELLIPSIS,
-            ),
+            ft.Row([title, editor], vertical_alignment=ft.CrossAxisAlignment.START),
             muted(" · ".join(filter(None, [w.author, f"{w.source_lang} → {w.target_lang}"]))),
             ft.ProgressBar(value=summary.fraction, border_radius=4),
             muted(t("library.progress", done=summary.done, total=summary.total)),
@@ -109,9 +116,9 @@ class LibraryView:
         self.ctx.memory.library_grid = not self.ctx.memory.library_grid
         self.ctx.state.notify(Topic.WORKS)
 
-    def _open(self, work_id) -> None:
+    def _open(self, work_id, route: str = "/translate") -> None:
         self.ctx.memory.selected_work = work_id
-        self.ctx.navigate("/translate")
+        self.ctx.navigate(route)
 
     async def _on_import(self, _: ft.Event) -> None:
         exts = [e.lstrip(".") for e in supported_extensions()]

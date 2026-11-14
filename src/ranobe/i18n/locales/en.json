@@ -4,35 +4,35 @@
   "nav.translate": "Translate",
   "nav.accounts": "Accounts",
   "nav.settings": "Settings",
-
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",
   "common.close": "Close",
-
   "lang.ja": "Japanese",
   "lang.ko": "Korean",
   "lang.en": "English",
   "lang.uk": "Ukrainian",
   "locale.uk": "Українська",
   "locale.en": "English",
-
   "status.pending": "Pending",
   "status.translated": "Translated",
   "status.needs_review": "Needs review",
   "status.reviewed": "Reviewed",
   "status.edited": "Edited",
-
   "time.unknown": "unknown",
   "time.under_minute": "less than a minute",
-  "time.minutes": {"one": "{n} minute", "other": "{n} minutes"},
+  "time.minutes": {
+    "one": "{n} minute",
+    "other": "{n} minutes"
+  },
   "time.hours_minutes": "{h} h {m} min",
-
   "export.format.txt": "Plain text (TXT)",
   "export.format.epub": "E-book (EPUB)",
   "export.format.cbz": "Page images (CBZ)",
-
-  "library.works": {"one": "{n} work", "other": "{n} works"},
+  "library.works": {
+    "one": "{n} work",
+    "other": "{n} works"
+  },
   "library.search": "Search by title or author",
   "library.as_grid": "Show as grid",
   "library.as_list": "Show as list",
@@ -47,14 +47,19 @@
   "library.no_results": "Nothing found",
   "library.no_results_hint": "Try another title or author name.",
   "library.progress": "{done} of {total} paragraphs",
-  "library.needs_review": {"one": "{n} paragraph needs review", "other": "{n} paragraphs need review"},
-
+  "library.needs_review": {
+    "one": "{n} paragraph needs review",
+    "other": "{n} paragraphs need review"
+  },
   "translate.no_work.title": "No work selected",
   "translate.no_work.hint": "Open a work in the library to translate it.",
   "translate.start": "Translate",
   "translate.pause": "Pause",
   "translate.chapters": "Chapters",
-  "translate.all_chapters": {"one": "All ({n} chapter)", "other": "All ({n} chapters)"},
+  "translate.all_chapters": {
+    "one": "All ({n} chapter)",
+    "other": "All ({n} chapters)"
+  },
   "translate.progress": "Progress",
   "translate.eta": "Time left: about {time}",
   "translate.active_key": "Active key: {account}",
@@ -67,7 +72,6 @@
   "translate.state.waiting_quota": "All keys are out of quota. You can continue after {time}.",
   "translate.state.no_keys": "No usable key: check that keys are added, enabled and working.",
   "translate.state.failed": "Error: {error}",
-
   "accounts.intro": "Keys from different providers work as one pool: when one runs out of quota, translation continues on the next. Keys are kept in the system keychain, not in the app's files.",
   "accounts.add": "Add key",
   "accounts.check": "Check keys",
@@ -97,7 +101,6 @@
   "accounts.status.cooldown": "short pause",
   "accounts.status.quota": "quota until {time}",
   "accounts.status.disabled": "disabled",
-
   "settings.language": "Interface language",
   "settings.theme": "Theme",
   "settings.theme.light": "Light",
@@ -108,7 +111,6 @@
   "settings.defaults": "Defaults",
   "settings.default_target": "Target language for new works",
   "settings.default_provider": "Provider for new keys",
-
   "master.title": "Master password",
   "master.title_new": "Create a master password",
   "master.explain": "The system keychain is not available, so API keys are encrypted with a password. Without it the keys cannot be read.",
@@ -119,5 +121,14 @@
   "master.unlock": "Continue",
   "master.too_short": "The password needs at least 8 characters.",
   "master.mismatch": "The passwords do not match.",
-  "master.wrong": "Wrong password."
+  "master.wrong": "Wrong password.",
+  "common.back": "Back",
+  "editor.no_work.title": "No work selected",
+  "editor.no_work.hint": "Open the editor from a work card in the library.",
+  "editor.previous_chapter": "Previous chapter",
+  "editor.next_chapter": "Next chapter",
+  "editor.show_original": "Show the original",
+  "editor.not_translated": "not translated yet",
+  "library.open_editor": "Editor",
+  "translate.open_editor": "Editor"
 }
